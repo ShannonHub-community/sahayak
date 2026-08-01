@@ -2,8 +2,8 @@ import "./globals.css";
 import { ReactNode } from "react";
 
 export const metadata = {
-  title: "Emergency Command Portal | District Disaster Management Authority",
-  description: "Official Emergency Operations Center (EOC) Command System",
+  title: "District Emergency Operations Centre (DEOC) | Panvel, Raigad",
+  description: "Government of Maharashtra - District Disaster Management Authority (DDMA)",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-100 text-slate-900 font-sans antialiased">
+      <body className="min-h-screen bg-[#F6F7F9] text-slate-900 font-sans antialiased">
         {children}
       </body>
     </html>
