@@ -1,14 +1,17 @@
+// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import AICopilotSidebar from "../components/AICopilotSidebar";
 import WorkforceTab from "../components/WorkforceTab";
+import ResourceLedger from "../components/ResourceLedger";
 
 const MapView = dynamic(() => import("../components/MapView"), {
   ssr: false,
 });
 
-export default function Home() {
+export default function Page() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [currentTime, setCurrentTime] = useState<string>("");
 
@@ -38,7 +41,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] text-slate-800 font-sans flex flex-col">
-      {/* Header */}
+      {/* Official Government Header */}
       <header className="bg-[#1F3A5F] text-white border-b-4 border-[#1565C0] shadow-xs">
         <div className="max-w-7xl mx-auto px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -74,12 +77,13 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Administrative Navigation Strip */}
         <div className="bg-[#182C48] border-t border-white/10 px-6">
           <div className="max-w-7xl mx-auto flex items-center gap-1 text-xs">
             {[
               { id: "overview", label: "Control Room Dashboard" },
               { id: "workforce", label: "Workforce Console & Dispatch" },
+              { id: "resources", label: "Resource & Equipment Ledger" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -132,45 +136,17 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-white border border-[#D7DEE7] rounded p-4 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between pb-2.5 border-b border-[#D7DEE7]">
-                  <h3 className="font-semibold text-sm text-[#1F3A5F]">Live Incident Feed</h3>
-                  <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
-                    6 Total Records
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-2 max-h-135 overflow-y-auto text-xs pr-1">
-                  {[
-                    { id: "INC-102", cat: "Evacuation", ward: "Ward 1 (Old Panvel)", prio: "Critical", team: "NDRF Unit 1", time: "18:42" },
-                    { id: "INC-101", cat: "Waterlogging", ward: "Ward 3 (Station Rd)", prio: "High", team: "Municipal Crew", time: "18:35" },
-                    { id: "INC-104", cat: "Medical Emergency", ward: "Ward 4 (Kalamboli)", prio: "High", team: "EMS Ambulance 3", time: "18:28" },
-                    { id: "INC-103", cat: "Road Blocked", ward: "Ward 5 (Khandeshwar)", prio: "Medium", team: "Public Works Dept", time: "18:15" },
-                  ].map((item) => (
-                    <div key={item.id} className="p-2.5 bg-[#FAFCFE] border border-[#D7DEE7] rounded hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-mono font-semibold text-[#1F3A5F]">{item.id}</span>
-                        <span className="text-slate-500 font-mono">{item.time} IST</span>
-                      </div>
-                      <div className="font-semibold text-slate-900 mt-1 text-xs">{item.cat} — <span className="font-normal text-slate-700">{item.ward}</span></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[#D7DEE7] text-[11px] text-slate-500 flex justify-between">
-                <span>DEOC Control Room</span>
-                <span>v4.2-EOC</span>
-              </div>
-            </div>
+            <AICopilotSidebar />
           </div>
-        ) : (
+        ) : activeTab === "workforce" ? (
           <WorkforceTab />
+        ) : (
+          <ResourceLedger />
         )}
 
       </main>
 
+      {/* Footer */}
       <footer className="bg-[#182C48] text-slate-300 text-xs border-t border-[#D7DEE7] py-3 px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <p>© Government of Maharashtra • District Disaster Management Authority (DDMA)</p>

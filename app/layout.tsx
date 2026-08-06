@@ -1,15 +1,14 @@
 import "./globals.css";
-import { ReactNode } from "react";
 
 export const metadata = {
-  title: "District Emergency Operations Centre (DEOC) | Panvel, Raigad",
-  description: "Government of Maharashtra - District Disaster Management Authority (DDMA)",
+  title: "District Emergency Operations Centre (DEOC) | Panvel",
+  description: "Government Emergency Command Portal",
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
