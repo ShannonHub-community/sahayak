@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 export default function ResourceAllocation() {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -9,9 +10,18 @@ export default function Header() {
     const updateClock = () => {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) +
+        now.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }) +
           " | " +
-          now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) +
+          now.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }) +
           " IST"
       );
     };

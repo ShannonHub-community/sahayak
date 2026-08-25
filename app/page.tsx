@@ -79,23 +79,24 @@ export default function Page() {
 
         {/* Administrative Navigation Strip */}
         <div className="bg-[#182C48] border-t border-white/10 px-6">
-          <div className="max-w-7xl mx-auto flex items-center gap-1 text-xs">
+          <div className="max-w-7xl mx-auto flex items-center gap-1 text-xs overflow-x-auto">
             {[
-              { id: "overview", label: "Control Room Dashboard" },
-              { id: "workforce", label: "Workforce Console & Dispatch" },
-              { id: "resources", label: "Resource & Equipment Ledger" },
+              { id: "overview", label: "Control Room Dashboard", href: "/" },
+              { id: "workforce", label: "Workforce Console & Dispatch", href: "/workforce" },
+              { id: "resources", label: "Resource & Equipment Ledger", href: "/resources" },
+              { id: "audit", label: "Audit & System Logs", href: "/audit" },
             ].map((tab) => (
-              <button
+              <a
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 font-medium transition-colors border-b-2 ${
+                href={tab.href}
+                className={`px-4 py-2.5 font-medium transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === tab.id
                     ? "border-white bg-[#1F3A5F] text-white"
                     : "border-transparent text-slate-300 hover:text-white hover:bg-white/5"
                 }`}
               >
                 {tab.label}
-              </button>
+              </a>
             ))}
           </div>
         </div>

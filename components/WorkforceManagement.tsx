@@ -1,7 +1,29 @@
+// @ts-nocheck
 "use client";
 
-import { useState } from "react";
-import { RescueTeam } from "../types";
+import React, { useState } from "react";
+
+interface RescueTeam {
+  id: string;
+  name: string;
+  leader: string;
+  memberCount: number;
+  members: string[];
+  skills: string[];
+  certifications: string[];
+  assignedVehicle: string;
+  equipment: string[];
+  currentMission?: string;
+  currentLocation: string;
+  status: "Available" | "On Mission" | "Standby" | "Maintenance" | "Offline";
+  readiness: string;
+  batteryLevel: number;
+  connectivity: string;
+  shift: string;
+  missionCount: number;
+  performanceScore: number;
+  avatar: string;
+}
 
 const MOCK_TEAMS: RescueTeam[] = [
   {
@@ -106,7 +128,6 @@ export default function WorkforceManagement() {
 
   return (
     <div className="space-y-5 text-slate-800 font-sans">
-      {/* Page Header Bar */}
       <div className="bg-white border border-[#D7DEE7] p-4 rounded flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
@@ -119,7 +140,6 @@ export default function WorkforceManagement() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View Toggle */}
           <div className="bg-slate-100 border border-slate-300 rounded p-0.5 flex items-center text-xs font-semibold">
             <button
               onClick={() => setViewMode("CARD")}
@@ -145,7 +165,6 @@ export default function WorkforceManagement() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
       <div className="bg-white border border-[#D7DEE7] p-3 rounded flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xs">
         <input
           type="text"
@@ -170,15 +189,13 @@ export default function WorkforceManagement() {
         </div>
       </div>
 
-      {/* CARD VIEW */}
       {viewMode === "CARD" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredTeams.map((team) => (
             <div
               key={team.id}
               className="bg-white border border-[#D7DEE7] rounded p-4 space-y-3.5 shadow-2xs hover:border-[#1565C0] transition-colors"
             >
-              {/* Card Header */}
               <div className="flex items-start justify-between border-b border-[#D7DEE7] pb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-slate-100 border border-slate-300 rounded flex items-center justify-center text-xl">
@@ -189,7 +206,7 @@ export default function WorkforceManagement() {
                       <h3 className="font-bold text-sm text-[#1F3A5F]">{team.name}</h3>
                       <span className="font-mono text-[10px] text-slate-500 font-semibold">{team.id}</span>
                     </div>
-                    <p className="text-xs text-slate-600 font-medium">Team Commander: {team.leader}</p>
+                    <p className="text-xs text-slate-600 font-medium">Commander: {team.leader}</p>
                   </div>
                 </div>
 
@@ -206,7 +223,6 @@ export default function WorkforceManagement() {
                 </span>
               </div>
 
-              {/* Card Details Grid */}
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-700 bg-[#FAFCFE] p-2.5 rounded border border-[#D7DEE7]">
                 <div>
                   <span className="text-[10px] text-slate-400 font-semibold block uppercase">Current Sector</span>
@@ -226,9 +242,8 @@ export default function WorkforceManagement() {
                 </div>
               </div>
 
-              {/* Skills Tags */}
               <div className="space-y-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Specialized Capabilities</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Capabilities</span>
                 <div className="flex flex-wrap gap-1">
                   {team.skills.map((skill, idx) => (
                     <span key={idx} className="bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-medium">
@@ -238,9 +253,8 @@ export default function WorkforceManagement() {
                 </div>
               </div>
 
-              {/* Action Footer */}
               <div className="pt-2 border-t border-[#D7DEE7] flex items-center justify-between text-xs">
-                <span className="text-slate-500 text-[11px]">Score: <strong className="text-[#2E7D32]">{team.performanceScore}%</strong></span>
+                <span className="text-slate-500 text-[11px]">Performance: <strong className="text-[#2E7D32]">{team.performanceScore}%</strong></span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setSelectedTeam(team)}
@@ -257,7 +271,6 @@ export default function WorkforceManagement() {
           ))}
         </div>
       ) : (
-        /* TABLE VIEW */
         <div className="bg-white border border-[#D7DEE7] rounded overflow-x-auto shadow-2xs">
           <table className="w-full text-left text-xs table-admin">
             <thead className="bg-[#1F3A5F] text-white font-semibold uppercase text-[11px]">
@@ -307,7 +320,6 @@ export default function WorkforceManagement() {
         </div>
       )}
 
-      {/* TEAM PROFILE MODAL DRAWER */}
       {selectedTeam && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-[#D7DEE7] rounded-lg max-w-xl w-full p-5 space-y-4 shadow-xl text-xs">

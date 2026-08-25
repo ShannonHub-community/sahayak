@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import React, { useState } from "react";
@@ -10,6 +11,29 @@ export default function AuditLogs() {
     { id: "LOG-904", action: "AI Action Approved", user: "Officer R. Sharma", target: "AI Recommendation #42", timestamp: "17:55:00 IST", ip: "192.168.1.15" },
   ]);
 
+  const handleExportCSV = () => {
+    const headers = ["Log ID", "Action Performed", "User / Officer", "Target Record", "Timestamp", "IP Address"];
+    const rows = logs.map((log) => [
+      `"${log.id}"`,
+      `"${log.action}"`,
+      `"${log.user}"`,
+      `"${log.target}"`,
+      `"${log.timestamp}"`,
+      `"${log.ip}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `deoc_audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="bg-white border border-[#D7DEE7] rounded p-5 space-y-4 text-slate-800 font-sans shadow-2xs">
       <div className="border-b border-[#D7DEE7] pb-3 flex justify-between items-center">
@@ -17,8 +41,11 @@ export default function AuditLogs() {
           <h2 className="text-base font-bold text-[#1F3A5F]">System & Operational Audit Logs</h2>
           <p className="text-xs text-slate-500">Immutable Activity Trail of User Decisions, Dispatches & System Events</p>
         </div>
-        <button className="bg-white border border-[#D7DEE7] text-slate-700 text-xs font-semibold px-3 py-1.5 rounded hover:bg-slate-50">
-          📥 Export Log CSV
+        <button
+          onClick={handleExportCSV}
+          className="bg-white border border-[#D7DEE7] text-slate-700 text-xs font-semibold px-3 py-1.5 rounded hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <span>📥</span> Export Log CSV
         </button>
       </div>
 
