@@ -82,6 +82,7 @@ export function useTwinWebsocket(url?: string) {
         };
 
         socket.onerror = (error) => {
+          if (!isMountedRef.current) return; // Ignores the Strict Mode phantom error
           console.error('[Digital Twin WS] Connection error:', error);
         };
 
