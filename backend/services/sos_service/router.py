@@ -1,12 +1,16 @@
+"""
+SOS Service API routes.
+
+    POST /api/sos
+"""
 from fastapi import APIRouter
 
+import service
+from schemas import SOSSubmitRequest, SOSSubmitResponse
 
-router = APIRouter(
-    prefix="/api/sos",
-    tags=["SOS"],
-)
+sos_submit_router = APIRouter(prefix="/api/sos", tags=["sos"])
 
 
-@router.get("/health")
-async def sos_health():
-    return {"status": "ok", "service": "sos"}
+@sos_submit_router.post("", response_model=SOSSubmitResponse)
+def submit_sos(req: SOSSubmitRequest):
+    return service.submit_sos(req)

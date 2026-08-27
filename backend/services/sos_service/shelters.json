@@ -1,0 +1,36 @@
+{
+  "shelters": [
+    {
+      "shelter_id": "shelter_001",
+      "name": "Community Hall - Ward 4",
+      "lat": 18.9894,
+      "lng": 73.1175,
+      "capacity": 200,
+      "contact": null
+    },
+    {
+      "shelter_id": "shelter_002",
+      "name": "Government High School Relief Camp",
+      "lat": 18.972,
+      "lng": 73.098,
+      "capacity": 350,
+      "contact": null
+    },
+    {
+      "shelter_id": "shelter_003",
+      "name": "Municipal Sports Complex",
+      "lat": 19.01,
+      "lng": 73.13,
+      "capacity": 500,
+      "contact": null
+    },
+    {
+      "shelter_id": "shelter_004",
+      "name": "Riverside Primary Health Centre",
+      "lat": 18.96,
+      "lng": 73.105,
+      "capacity": 120,
+      "contact": null
+    }
+  ]
+}
