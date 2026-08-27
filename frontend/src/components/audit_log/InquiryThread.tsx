@@ -10,14 +10,20 @@ interface InquiryThreadProps {
 
 export const InquiryThread: React.FC<InquiryThreadProps> = ({ ticketId, inquiries }) => {
   const [newQuestion, setNewQuestion] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const { addInquiry } = useAuditLogStore();
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newQuestion.trim()) return;
-    
-    addInquiry(ticketId, newQuestion);
-    setNewQuestion('');
+    if (!newQuestion.trim() || isSending) return;
+
+    setIsSending(true);
+    try {
+      await addInquiry(ticketId, newQuestion);
+      setNewQuestion('');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const getStatusBadge = (status: TicketInquiry['status']) => {
@@ -94,7 +100,7 @@ export const InquiryThread: React.FC<InquiryThreadProps> = ({ ticketId, inquirie
           />
           <button
             type="submit"
-            disabled={!newQuestion.trim()}
+            disabled={!newQuestion.trim() || isSending}
             className="absolute right-2 p-1 text-slate-500 hover:text-emerald-600 disabled:opacity-50 disabled:hover:text-slate-500 transition-colors"
           >
             <Send className="w-4 h-4" />

@@ -13,7 +13,7 @@ import { TicketDetailPanel } from './TicketDetailPanel';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Undo2 } from 'lucide-react';
 
 export const AuditLogTable: React.FC = () => {
-  const { tickets, filters, openRevertModal } = useAuditLogStore();
+  const { tickets, filters, openRevertModal, isLoading } = useAuditLogStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
@@ -149,7 +149,6 @@ export const AuditLogTable: React.FC = () => {
     getRowCanExpand: () => true,
   });
 
-  const isLoading = tickets.length === 0;
 
   return (
     <div className="flex-1 overflow-auto bg-white border border-slate-200 rounded-md shadow-sm">

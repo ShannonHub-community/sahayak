@@ -10,14 +10,23 @@ interface RevertModalProps {
 
 export const RevertModal: React.FC<RevertModalProps> = ({ ticket, isOpen }) => {
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { revertTicket, closeRevertModal } = useAuditLogStore();
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!reason.trim()) return;
-    revertTicket(ticket.id, reason);
-    closeRevertModal();
+    setIsSubmitting(true);
+    try {
+      await revertTicket(ticket.id, reason);
+      closeRevertModal();
+    } catch {
+      // Error already handled in store with local fallback
+      closeRevertModal();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -76,10 +85,10 @@ export const RevertModal: React.FC<RevertModalProps> = ({ ticket, isOpen }) => {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!reason.trim()}
+            disabled={!reason.trim() || isSubmitting}
             className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-500 border border-rose-600 disabled:bg-rose-900 disabled:text-rose-400 disabled:border-rose-900 disabled:cursor-not-allowed rounded-md transition-colors shadow-sm"
           >
-            Confirm Revert & Send Stop Signal
+            {isSubmitting ? 'Sending…' : 'Confirm Revert & Send Stop Signal'}
           </button>
         </div>
       </div>
