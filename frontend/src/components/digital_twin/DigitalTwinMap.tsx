@@ -126,7 +126,10 @@ export default function DigitalTwinMap() {
   useTwinWebsocket();
 
   const entities = useTwinStore((state) => state.entities);
-  const [selectedEntity, setSelectedEntity] = useState<TwinMapState | null>(null);
+  // selectedEntity is lifted into the Zustand store so CommandCenter
+  // can read it reactively without prop drilling.
+  const selectedEntity = useTwinStore((state) => state.selectedEntity);
+  const setSelectedEntity = useTwinStore((state) => state.setSelectedEntity);
   const [selectedFlood, setSelectedFlood] = useState<FloodPoint | null>(null);
 
   const getCoordinates = (entity: TwinMapState): { lat: number; lng: number } | null => {
@@ -260,7 +263,7 @@ export default function DigitalTwinMap() {
               onClick={(e) => {
                 e.originalEvent.stopPropagation();
                 setSelectedFlood(null);
-                setSelectedEntity((prev) => (prev?.id === entity.id ? null : entity));
+                setSelectedEntity(selectedEntity?.id === entity.id ? null : entity);
               }}
             >
               <div className="cursor-pointer">

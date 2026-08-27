@@ -1,4 +1,5 @@
 import DigitalTwinMap from "@/components/digital_twin/DigitalTwinMap";
+import CommandCenter from "@/components/ai_decision/CommandCenter";
 
 export default function AdminDashboard() {
     return (
@@ -8,10 +9,9 @@ export default function AdminDashboard() {
                 <DigitalTwinMap />
             </div>
 
-            {/* Right Side: Sidebar (Placeholder) */}
-            <div className="w-[30%] h-full bg-slate-800 border-l border-slate-700 p-6 flex flex-col justify-center items-center">
-                <h2 className="text-white text-xl font-bold">Command Center</h2>
-                <p className="text-slate-400 mt-2">AI Decision System loading...</p>
+            {/* Right Side: AI Command Center */}
+            <div className="w-[30%] h-full border-l border-slate-700">
+                <CommandCenter />
             </div>
         </main>
     );

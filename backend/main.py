@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.sos_service.router import router as sos_router
 from services.resource_service.router import router as resource_router
 from services.twin_aggregator.router import router as twin_aggregator_router
+from services.ai_decision.router import router as ai_decision_router
 
 print(f"DEBUG: SUPABASE_URL = {os.getenv('SUPABASE_URL')}")
 
@@ -37,6 +38,7 @@ app.include_router(
     tags=["Resource Manager"]
 )
 app.include_router(twin_aggregator_router)
+app.include_router(ai_decision_router)
 
 
 @app.get("/health")

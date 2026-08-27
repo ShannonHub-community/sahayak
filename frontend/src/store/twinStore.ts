@@ -5,16 +5,19 @@ export interface TwinState {
   entities: Record<string, TwinMapState>;
   isConnected: boolean;
   lastUpdated: string | null;
+  selectedEntity: TwinMapState | null;
 
   setInitialState: (entities: Record<string, TwinMapState>) => void;
   applyDiff: (diff: TwinDiffPayload) => void;
   setConnectionStatus: (status: boolean) => void;
+  setSelectedEntity: (entity: TwinMapState | null) => void;
 }
 
 export const useTwinStore = create<TwinState>((set) => ({
   entities: {},
   isConnected: false,
   lastUpdated: null,
+  selectedEntity: null,
 
   setInitialState: (entities: Record<string, TwinMapState>) =>
     set({
@@ -61,4 +64,7 @@ export const useTwinStore = create<TwinState>((set) => ({
     set({
       isConnected: status,
     }),
+
+  setSelectedEntity: (entity: TwinMapState | null) =>
+    set({ selectedEntity: entity }),
 }));
