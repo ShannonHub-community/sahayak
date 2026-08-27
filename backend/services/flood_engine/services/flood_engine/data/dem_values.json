@@ -1,0 +1,7 @@
+{
+  "WARD-01": {"elevation_m": 12.4, "slope": 1.8},
+  "WARD-02": {"elevation_m": 8.1,  "slope": 0.9},
+  "WARD-03": {"elevation_m": 21.7, "slope": 3.4},
+  "WARD-04": {"elevation_m": 5.6,  "slope": 0.4},
+  "WARD-05": {"elevation_m": 15.2, "slope": 2.1}
+}
