@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Map, { Marker, Popup } from "react-map-gl/maplibre";
-import type { StyleSpecification } from "maplibre-gl";
+// Removed StyleSpecification import
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   X,
@@ -25,7 +25,7 @@ import { TwinMapState } from "./types";
  * Stable MapLibre Raster Style for OpenStreetMap base tiles.
  * v2 — marker-based flood zones, no GeoJSON fill layers.
  */
-const OSM_RASTER_STYLE: StyleSpecification = {
+const OSM_RASTER_STYLE: any = {
   version: 8,
   sources: {
     osm: {
@@ -196,7 +196,7 @@ export default function DigitalTwinMap() {
               longitude={flood.location.lng}
               latitude={flood.location.lat}
               anchor="center"
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.originalEvent.stopPropagation();
                 setSelectedEntity(null);
                 setSelectedFlood((prev) => (prev?.id === flood.id ? null : flood));
@@ -208,25 +208,22 @@ export default function DigitalTwinMap() {
               >
                 {/* Outer Pulsating Ripple Aura */}
                 <span
-                  className={`absolute -inset-1.5 rounded-full opacity-70 animate-ping ${
-                    isCritical ? "bg-cyan-400" : "bg-sky-400"
-                  }`}
+                  className={`absolute -inset-1.5 rounded-full opacity-70 animate-ping ${isCritical ? "bg-cyan-400" : "bg-sky-400"
+                    }`}
                 />
 
                 {/* Tactical Glassmorphic Flood Badge */}
                 <div
-                  className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md shadow-lg transition-all duration-200 hover:scale-110 ${
-                    isSelected
+                  className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md shadow-lg transition-all duration-200 hover:scale-110 ${isSelected
                       ? "bg-slate-900/95 border-2 border-cyan-400 shadow-[0_0_18px_rgba(6,182,212,0.8)] scale-105"
                       : "bg-slate-900/90 border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.4)]"
-                  }`}
+                    }`}
                 >
                   <span className="relative flex items-center justify-center">
                     <Droplets
                       size={13}
-                      className={`${
-                        isCritical ? "text-cyan-300 animate-pulse" : "text-sky-300"
-                      }`}
+                      className={`${isCritical ? "text-cyan-300 animate-pulse" : "text-sky-300"
+                        }`}
                     />
                   </span>
                   <span className="text-[11px] font-bold tracking-tight whitespace-nowrap text-cyan-200">
@@ -257,7 +254,7 @@ export default function DigitalTwinMap() {
               longitude={coords.lng}
               latitude={coords.lat}
               anchor="center"
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.originalEvent.stopPropagation();
                 setSelectedFlood(null);
                 setSelectedEntity((prev) => (prev?.id === entity.id ? null : entity));
@@ -315,11 +312,10 @@ export default function DigitalTwinMap() {
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-slate-400 text-[10px]">Status:</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded text-[10px] font-medium border ${
-                      selectedFlood.severity === "critical"
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-medium border ${selectedFlood.severity === "critical"
                         ? "bg-red-500/20 text-red-300 border-red-500/40"
                         : "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                    }`}
+                      }`}
                   >
                     {selectedFlood.status}
                   </span>
@@ -431,8 +427,8 @@ export default function DigitalTwinMap() {
                     {selectedEntity.entity_type === "resource_unit" && selectedEntity.symbol.includes("shelter")
                       ? "Capacity:"
                       : selectedEntity.entity_type === "sos_report" || selectedEntity.entity_type === "sos"
-                      ? "Severity:"
-                      : "Units:"}
+                        ? "Severity:"
+                        : "Units:"}
                   </span>
                   <span className="font-semibold text-slate-200 bg-slate-800/80 px-1.5 py-0.2 rounded border border-slate-700/50 text-[10px]">
                     {selectedEntity.severity_count ?? 1}
