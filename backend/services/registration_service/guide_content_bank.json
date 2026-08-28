@@ -1,0 +1,97 @@
+{
+  "guides": [
+    {
+      "guide_id": "flood_protocol",
+      "title": "Flood Safety Protocol",
+      "type": "flood",
+      "disease_tags": [],
+      "content_url": "/content/guides/flood_protocol.html"
+    },
+    {
+      "guide_id": "first_aid",
+      "title": "Basic First Aid Guide",
+      "type": "first_aid",
+      "disease_tags": [],
+      "content_url": "/content/guides/first_aid.html"
+    },
+    {
+      "guide_id": "disease_diabetes",
+      "title": "Managing Diabetes During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["diabetes"],
+      "content_url": "/content/guides/disease_diabetes.html"
+    },
+    {
+      "guide_id": "disease_hypertension",
+      "title": "Managing Hypertension During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["hypertension", "high_bp"],
+      "content_url": "/content/guides/disease_hypertension.html"
+    },
+    {
+      "guide_id": "disease_asthma",
+      "title": "Managing Asthma During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["asthma", "respiratory"],
+      "content_url": "/content/guides/disease_asthma.html"
+    },
+    {
+      "guide_id": "disease_heart",
+      "title": "Managing Heart Conditions During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["heart_disease", "cardiac"],
+      "content_url": "/content/guides/disease_heart.html"
+    },
+    {
+      "guide_id": "disease_kidney",
+      "title": "Managing Kidney/Dialysis Needs During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["kidney_disease", "dialysis"],
+      "content_url": "/content/guides/disease_kidney.html"
+    },
+    {
+      "guide_id": "disease_pregnancy",
+      "title": "Pregnancy Safety During a Flood Emergency",
+      "type": "disease",
+      "disease_tags": ["pregnancy"],
+      "content_url": "/content/guides/disease_pregnancy.html"
+    },
+    {
+      "guide_id": "disease_disability",
+      "title": "Evacuation Guidance for Reduced Mobility",
+      "type": "disease",
+      "disease_tags": ["disability", "reduced_mobility"],
+      "content_url": "/content/guides/disease_disability.html"
+    }
+  ],
+  "shelters": [
+    {
+      "shelter_id": "shelter_001",
+      "name": "Community Hall - Ward 4",
+      "lat": 18.9894,
+      "lng": 73.1175,
+      "capacity": 200
+    },
+    {
+      "shelter_id": "shelter_002",
+      "name": "Government High School Relief Camp",
+      "lat": 18.9720,
+      "lng": 73.0980,
+      "capacity": 350
+    },
+    {
+      "shelter_id": "shelter_003",
+      "name": "Municipal Sports Complex",
+      "lat": 19.0100,
+      "lng": 73.1300,
+      "capacity": 500
+    },
+    {
+      "shelter_id": "shelter_004",
+      "name": "Riverside Primary Health Centre",
+      "lat": 18.9600,
+      "lng": 73.1050,
+      "capacity": 120
+    }
+  ]
+}

@@ -1,4 +1,6 @@
+import traceback
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 from services.twin_aggregator.service import (
     manager,
     get_current_map_state,
@@ -17,27 +19,32 @@ async def websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for Next.js clients to subscribe to real-time map state diffs.
     """
-    await manager.connect(websocket)
-    
-    # Send the current full map state snapshot as an initial 'added' list.
-    current_state = get_current_map_state()
-    initial_diff = {
-        "added": list(current_state.values()),
-        "updated": [],
-        "removed": []
-    }
-    
+    await websocket.accept()
     try:
-        await websocket.send_json(initial_diff)
-        
+        await manager.connect(websocket)
+
+        # Send the current full map state snapshot as an initial 'added' list.
+        current_state = get_current_map_state()
+        initial_diff = {
+            "added": list(current_state.values()),
+            "updated": [],
+            "removed": []
+        }
+
+        # Use jsonable_encoder to safely serialize datetime, UUID, and geography
+        # objects that Python's default json module cannot handle natively.
+        await websocket.send_json(jsonable_encoder(initial_diff))
+
         while True:
             # We keep the connection alive and handle client disconnects.
             # Client messages are discarded since this is a one-way broadcast.
             await websocket.receive_text()
-            
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-    except Exception:
+    except Exception as e:
+        print("[WebSocket ERROR] Unhandled exception in websocket_endpoint:")
+        print(traceback.format_exc())
         manager.disconnect(websocket)
 
 
