@@ -150,10 +150,10 @@ function ConfidenceBadge({ score, level }: { score?: number; level?: string }) {
   if (score !== undefined) {
     const color =
       score >= 85
-        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
         : score >= 60
-        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-        : "bg-red-500/20 text-red-300 border-red-500/40";
+        ? "bg-amber-50 text-amber-700 border-amber-200"
+        : "bg-rose-50 text-rose-700 border-rose-200";
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${color}`}>
         <Zap size={11} />
@@ -164,10 +164,10 @@ function ConfidenceBadge({ score, level }: { score?: number; level?: string }) {
   const safeLevel = (level || "medium").toLowerCase();
   const cfg =
     {
-      high: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-      medium: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-      low: "bg-red-500/20 text-red-300 border-red-500/40",
-    }[safeLevel] ?? "bg-slate-500/20 text-slate-300 border-slate-500/40";
+      high: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      medium: "bg-amber-50 text-amber-700 border-amber-200",
+      low: "bg-rose-50 text-rose-700 border-rose-200",
+    }[safeLevel] ?? "bg-slate-100 text-slate-700 border-slate-200";
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${cfg}`}>
       <Zap size={11} />
@@ -185,19 +185,19 @@ function ValidationCheckRow({ check }: { check: ValidationCheck }) {
   return (
     <div
       className={`flex items-start gap-2.5 p-2.5 rounded-lg border ${
-        check.passed ? "bg-emerald-500/5 border-emerald-500/25" : "bg-red-500/5 border-red-500/25"
+        check.passed ? "bg-emerald-50/50 border-emerald-200" : "bg-rose-50/50 border-rose-200"
       }`}
     >
       {check.passed ? (
-        <CircleCheck size={15} className="text-emerald-400 mt-0.5 shrink-0" />
+        <CircleCheck size={15} className="text-emerald-600 mt-0.5 shrink-0" />
       ) : (
-        <CircleX size={15} className="text-red-400 mt-0.5 shrink-0" />
+        <CircleX size={15} className="text-rose-600 mt-0.5 shrink-0" />
       )}
       <div className="min-w-0">
-        <p className={`text-xs font-semibold ${check.passed ? "text-emerald-300" : "text-red-300"}`}>
+        <p className={`text-xs font-semibold ${check.passed ? "text-emerald-800" : "text-rose-800"}`}>
           {label[check.name] ?? check.name}
         </p>
-        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{check.details}</p>
+        <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">{check.details}</p>
       </div>
     </div>
   );
@@ -206,9 +206,9 @@ function ValidationCheckRow({ check }: { check: ValidationCheck }) {
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-2.5">
-      <span className="text-cyan-400">{icon}</span>
-      <h4 className="text-[11px] font-bold uppercase tracking-widest text-cyan-400">{label}</h4>
-      <div className="flex-1 h-px bg-cyan-900/60" />
+      <span className="text-slate-900">{icon}</span>
+      <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-900">{label}</h4>
+      <div className="flex-1 h-px bg-slate-200" />
     </div>
   );
 }
@@ -216,10 +216,10 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
 function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="text-slate-500 mt-0.5 shrink-0">{icon}</span>
+      <span className="text-slate-400 mt-0.5 shrink-0">{icon}</span>
       <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium shrink-0">{label}</span>
-        <span className="text-[11px] text-slate-200 font-semibold text-right truncate">{value}</span>
+        <span className="text-[11px] text-slate-900 font-semibold text-right truncate">{value}</span>
       </div>
     </div>
   );
@@ -242,58 +242,58 @@ function ValidationSection({ validationResult }: { validationResult: ValidationR
         className="w-full flex items-center justify-between gap-2 group"
       >
         <div className="flex items-center gap-2">
-          <span className="text-cyan-400">
+          <span className="text-slate-900">
             <ShieldCheck size={14} />
           </span>
-          <h4 className="text-[11px] font-bold uppercase tracking-widest text-cyan-400">
+          <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-900">
             Deterministic Validation
           </h4>
         </div>
 
         <div className="flex items-center gap-2">
           {isValid ? (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
               <CircleCheck size={12} />
               Passed
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-red-400">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-rose-700">
               <CircleX size={12} />
               {errors.length} failure{errors.length !== 1 ? "s" : ""}
             </span>
           )}
           <ChevronDown
             size={13}
-            className={`text-slate-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            className={`text-slate-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
           />
         </div>
       </button>
 
-      <div className="h-px bg-cyan-900/60 -mt-0.5" />
+      <div className="h-px bg-slate-200 -mt-0.5" />
 
       {expanded && (
         <div className="space-y-1.5 pt-0.5">
           {checks.length > 0 ? (
             checks.map((check) => <ValidationCheckRow key={check.name} check={check} />)
           ) : (
-            <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 flex items-start gap-2">
-              <TriangleAlert size={14} className="text-red-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-red-300 leading-snug">
+            <div className="p-3 rounded-lg border border-rose-200 bg-rose-50 flex items-start gap-2">
+              <TriangleAlert size={14} className="text-rose-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-rose-700 leading-snug">
                 Validation data missing or API error. Checks could not be completed.
               </p>
             </div>
           )}
 
           {errors.length > 0 && (
-            <div className="mt-1.5 p-2.5 rounded-lg bg-red-950/40 border border-red-500/25">
-              <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1.5">
+            <div className="mt-1.5 p-2.5 rounded-lg bg-rose-50 border border-rose-200">
+              <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider mb-1.5">
                 Constraint Violations
               </p>
               <ul className="space-y-1">
                 {errors.map((err, i) => (
                   <li key={i} className="flex items-start gap-1.5">
-                    <ChevronRight size={11} className="text-red-500 mt-0.5 shrink-0" />
-                    <span className="text-[11px] text-red-300 leading-snug">{err}</span>
+                    <ChevronRight size={11} className="text-rose-500 mt-0.5 shrink-0" />
+                    <span className="text-[11px] text-rose-700 leading-snug">{err}</span>
                   </li>
                 ))}
               </ul>
@@ -316,19 +316,19 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
     const resources = Array.isArray(rec.allocated_resources) ? rec.allocated_resources : [];
     const priorityColor =
       (aiPlan.priority_level ?? "").toUpperCase() === "CRITICAL"
-        ? "bg-red-500/20 text-red-300 border-red-500/40"
-        : "bg-amber-500/20 text-amber-300 border-amber-500/40";
+        ? "bg-rose-50 text-rose-700 border-rose-200"
+        : "bg-amber-50 text-amber-700 border-amber-200";
 
     return (
       <div className="space-y-2">
         <SectionHeader icon={<Brain size={14} />} label="AI Directive" />
 
         {/* Directive Header Card */}
-        <div className="rounded-lg bg-slate-800/60 border border-slate-700/50 p-3 space-y-2">
+        <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-2 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <Hash size={11} className="text-cyan-500 shrink-0" />
-              <span className="text-xs font-bold text-cyan-300 tracking-wider font-mono">
+              <Hash size={11} className="text-slate-500 shrink-0" />
+              <span className="text-xs font-bold text-slate-900 tracking-wider font-mono">
                 {aiPlan.directive_id ? formatId(aiPlan.directive_id) : "—"}
               </span>
             </div>
@@ -339,13 +339,13 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
             )}
           </div>
 
-          <div className="space-y-1.5 pt-1 border-t border-slate-700/50">
+          <div className="space-y-1.5 pt-1 border-t border-slate-100">
             {aiPlan.action_type && (
               <MetaRow
                 icon={<Target size={11} />}
                 label="Action Type"
                 value={
-                  <span className="text-cyan-300 font-mono text-[11px]">
+                  <span className="text-slate-900 font-mono text-[11px] font-semibold">
                     {aiPlan.action_type.replace(/_/g, " ")}
                   </span>
                 }
@@ -370,10 +370,10 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
 
         {/* Dispatch Target */}
         {(rec.target_unit_name || rec.destination_ward || rec.destination) && (
-          <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3 space-y-1.5">
+          <div className="rounded-lg bg-white border border-slate-200 p-3 space-y-1.5 shadow-sm">
             <div className="flex items-center gap-1.5 mb-1">
-              <Users size={11} className="text-cyan-500" />
-              <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Dispatch Target</span>
+              <Users size={11} className="text-slate-700" />
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Dispatch Target</span>
             </div>
             {rec.target_unit_name && (
               <MetaRow icon={<Users size={11} />} label="Unit" value={rec.target_unit_name} />
@@ -393,22 +393,22 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
 
         {/* Allocated Resources */}
         {resources.length > 0 && (
-          <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3">
+          <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
             <div className="flex items-center gap-1.5 mb-2.5">
-              <Package size={11} className="text-cyan-500" />
-              <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Allocated Resources</span>
+              <Package size={11} className="text-slate-700" />
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Allocated Resources</span>
             </div>
             <div className="space-y-1.5">
               {resources.map((r, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded bg-slate-900/60 border border-slate-700/50"
+                  className="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded bg-slate-50 border border-slate-200"
                 >
                   <div className="min-w-0">
-                    <p className="text-[11px] text-slate-200 font-medium truncate">{r.name}</p>
+                    <p className="text-[11px] text-slate-900 font-medium truncate">{r.name}</p>
                     <p className="text-[10px] text-slate-500 font-mono">{formatId(r.item_id)}</p>
                   </div>
-                  <span className="text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-xs font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-full shrink-0">
                     ×{r.quantity}
                   </span>
                 </div>
@@ -419,12 +419,12 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
 
         {/* AI Reasoning */}
         {aiPlan.ai_reasoning && (
-          <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3">
+          <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
             <div className="flex items-center gap-1.5 mb-2">
-              <Info size={11} className="text-cyan-500" />
-              <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Agent Reasoning</span>
+              <Info size={11} className="text-slate-700" />
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Agent Reasoning</span>
             </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">{aiPlan.ai_reasoning}</p>
+            <p className="text-[11px] text-slate-700 leading-relaxed">{aiPlan.ai_reasoning}</p>
           </div>
         )}
       </div>
@@ -438,31 +438,31 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
       <SectionHeader icon={<Brain size={14} />} label="AI Proposed Plan" />
 
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] text-slate-400">Lyzr Agent Confidence</span>
+        <span className="text-[11px] text-slate-600">Lyzr Agent Confidence</span>
         <ConfidenceBadge level={aiPlan.confidence} />
       </div>
 
       {aiPlan.reasoning && (
-        <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3">
+        <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
           <div className="flex items-center gap-1.5 mb-2">
-            <Info size={11} className="text-cyan-500" />
-            <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Agent Reasoning</span>
+            <Info size={11} className="text-slate-700" />
+            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Agent Reasoning</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">{aiPlan.reasoning}</p>
+          <p className="text-[11px] text-slate-700 leading-relaxed">{aiPlan.reasoning}</p>
         </div>
       )}
 
       {recommendedResources.length > 0 && (
-        <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3">
+        <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
           <div className="flex items-center gap-1.5 mb-2.5">
-            <Package size={11} className="text-cyan-500" />
-            <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Recommended Allocations</span>
+            <Package size={11} className="text-slate-700" />
+            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Recommended Allocations</span>
           </div>
           <div className="space-y-1.5">
             {recommendedResources.map((r, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded bg-slate-900/60 border border-slate-700/50">
-                <span className="text-[11px] text-slate-300 font-medium truncate max-w-[190px]">{r.resource_id}</span>
-                <span className="text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-full shrink-0">
+              <div key={i} className="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded bg-slate-50 border border-slate-200">
+                <span className="text-[11px] text-slate-800 font-medium truncate max-w-[190px]">{r.resource_id}</span>
+                <span className="text-xs font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-full shrink-0">
                   ×{r.quantity}
                 </span>
               </div>
@@ -548,11 +548,11 @@ function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-slate-50">
       {/* Messages Scroll Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent"
+        className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent"
       >
         {messages.map((msg) => (
           <div
@@ -560,22 +560,22 @@ function ChatInterface() {
             className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {msg.role === "ai" && (
-              <div className="w-6 h-6 rounded-md bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                <Bot size={13} className="text-cyan-400" />
+              <div className="w-6 h-6 rounded-md bg-slate-900 text-white flex items-center justify-center shrink-0 mt-0.5">
+                <Bot size={13} className="text-white" />
               </div>
             )}
 
             <div
               className={`max-w-[85%] rounded-xl p-3 text-xs leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-cyan-600/25 border border-cyan-500/40 text-cyan-50 rounded-br-none shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                  : "bg-slate-800/80 border border-slate-700/70 text-slate-200 rounded-bl-none shadow-md"
+                  ? "bg-slate-900 text-white rounded-br-none shadow-sm"
+                  : "bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm"
               }`}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
               <div
                 className={`text-[9px] mt-1 font-mono ${
-                  msg.role === "user" ? "text-cyan-300/70 text-right" : "text-slate-500 text-left"
+                  msg.role === "user" ? "text-slate-300 text-right" : "text-slate-400 text-left"
                 }`}
               >
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -583,8 +583,8 @@ function ChatInterface() {
             </div>
 
             {msg.role === "user" && (
-              <div className="w-6 h-6 rounded-md bg-slate-700/80 border border-slate-600 flex items-center justify-center shrink-0 mt-0.5">
-                <User size={12} className="text-slate-300" />
+              <div className="w-6 h-6 rounded-md bg-slate-200 border border-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                <User size={12} className="text-slate-700" />
               </div>
             )}
           </div>
@@ -593,14 +593,14 @@ function ChatInterface() {
         {/* AI Typing Indicator */}
         {isTyping && (
           <div className="flex gap-2.5 justify-start items-center">
-            <div className="w-6 h-6 rounded-md bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
-              <Bot size={13} className="text-cyan-400" />
+            <div className="w-6 h-6 rounded-md bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <Bot size={13} className="text-white" />
             </div>
-            <div className="bg-slate-800/80 border border-slate-700/70 rounded-xl rounded-bl-none px-3.5 py-2.5 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-              <span className="text-[10px] text-cyan-400 font-semibold ml-1.5">AI is analyzing…</span>
+            <div className="bg-white border border-slate-200 rounded-xl rounded-bl-none px-3.5 py-2.5 flex items-center gap-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span className="text-[10px] text-slate-600 font-semibold ml-1.5">AI is analyzing…</span>
             </div>
           </div>
         )}
@@ -608,14 +608,14 @@ function ChatInterface() {
 
       {/* Quick Suggestion Pills */}
       {messages.length <= 2 && (
-        <div className="px-3.5 pb-2 pt-1 flex flex-wrap gap-1.5 border-t border-slate-800/60 bg-slate-900/90">
+        <div className="px-3.5 pb-2 pt-1 flex flex-wrap gap-1.5 border-t border-slate-200 bg-slate-100">
           {SUGGESTED_QUESTIONS.map((q, idx) => (
             <button
               key={idx}
               onClick={() => {
                 setInput(q);
               }}
-              className="text-[10px] bg-slate-800/90 hover:bg-cyan-950/60 hover:text-cyan-300 text-slate-300 px-2 py-1 rounded-md border border-slate-700/60 hover:border-cyan-500/40 transition-all truncate max-w-full text-left"
+              className="text-[10px] bg-white hover:bg-slate-50 hover:text-slate-900 text-slate-700 px-2 py-1 rounded-md border border-slate-300 hover:border-slate-400 transition-all truncate max-w-full text-left shadow-sm"
             >
               {q}
             </button>
@@ -624,7 +624,7 @@ function ChatInterface() {
       )}
 
       {/* Input Bar */}
-      <div className="p-3 border-t border-slate-700/70 bg-slate-900/95 backdrop-blur-md">
+      <div className="p-3 border-t border-slate-200 bg-white">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -637,12 +637,12 @@ function ChatInterface() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about live flood levels, NDRF units, evacuations…"
-            className="flex-1 bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
+            className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors"
           />
           <button
             type="submit"
             disabled={!input.trim() || isTyping}
-            className="p-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 hover:border-cyan-400/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(6,182,212,0.15)] shrink-0"
+            className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shrink-0"
           >
             {isTyping ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           </button>
@@ -912,17 +912,17 @@ export default function CommandCenter() {
   const isActionableIncident = selectedEntity ? isSosIncident(selectedEntity) : false;
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 font-sans select-none overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 font-sans select-none overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="shrink-0 px-5 pt-3.5 pb-2.5 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/60">
+      <div className="shrink-0 px-5 pt-3.5 pb-2.5 bg-white border-b border-slate-200 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]">
-              <Bot size={15} className="text-cyan-400" />
+            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 text-white shadow-sm">
+              <Bot size={15} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">AI Command Center</h2>
-              <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">AI Command Center</h2>
+              <p className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">
                 Lyzr Decision Engine · Flood Response
               </p>
             </div>
@@ -930,13 +930,13 @@ export default function CommandCenter() {
         </div>
 
         {/* ── Tab Navigation Bar ────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 mt-3 bg-slate-950/60 p-0.5 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1 mt-3 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
           <button
             onClick={() => setActiveTab("plan")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 ${
               activeTab === "plan"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_8px_rgba(6,182,212,0.2)]"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                ? "bg-white text-slate-900 border border-slate-200 shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
             }`}
           >
             <FileText size={13} />
@@ -946,8 +946,8 @@ export default function CommandCenter() {
             onClick={() => setActiveTab("chat")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 ${
               activeTab === "chat"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_8px_rgba(6,182,212,0.2)]"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                ? "bg-white text-slate-900 border border-slate-200 shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
             }`}
           >
             <MessageSquare size={13} />
@@ -963,16 +963,16 @@ export default function CommandCenter() {
       {activeTab === "plan" && (
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Scrollable Body */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
 
             {/* State 1: No entity selected */}
             {!selectedEntity && (
               <div className="flex flex-col items-center justify-center h-52 text-center gap-3 mt-6">
-                <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg">
-                  <PackageSearch size={26} className="text-slate-500" />
+                <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
+                  <PackageSearch size={26} className="text-slate-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-300">No Incident Selected</p>
+                  <p className="text-sm font-semibold text-slate-900">No Incident Selected</p>
                   <p className="text-xs text-slate-500 mt-1 max-w-[200px] leading-relaxed">
                     Click an SOS incident marker on the map to begin AI analysis.
                   </p>
@@ -983,18 +983,18 @@ export default function CommandCenter() {
             {/* State 2: Non-SOS entity selected */}
             {selectedEntity && !isActionableIncident && (
               <div className="flex flex-col items-center justify-center gap-3 mt-6 text-center">
-                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-lg">
-                  <TriangleAlert size={24} className="text-amber-400" />
+                <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shadow-sm">
+                  <TriangleAlert size={24} className="text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">
+                  <p className="text-sm font-semibold text-slate-900">
                     {selectedEntity.symbol?.replace(/_/g, " ") || "Entity"} selected
                   </p>
                   <p className="text-xs text-slate-500 mt-1 max-w-[210px] leading-relaxed">
-                    Select an <span className="text-amber-400 font-semibold">active SOS incident</span> on the map to generate a response plan.
+                    Select an <span className="text-amber-700 font-semibold">active SOS incident</span> on the map to generate a response plan.
                   </p>
                 </div>
-                <span className="text-[10px] text-slate-600 font-mono border border-slate-700 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-slate-600 font-mono bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
                   {selectedEntity.entity_type?.replace(/_/g, " ")}
                 </span>
               </div>
@@ -1002,17 +1002,17 @@ export default function CommandCenter() {
 
             {/* State 3: SOS entity selected */}
             {selectedEntity && isActionableIncident && (
-              <div className="rounded-lg border border-slate-700/70 bg-slate-800/50 p-3 space-y-2.5">
+              <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2.5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Incident</p>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 uppercase tracking-wider font-bold">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Incident</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider font-bold">
                     SOS
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white capitalize truncate">
+                    <p className="text-sm font-bold text-slate-900 capitalize truncate">
                       {selectedEntity.symbol?.replace(/_/g, " ")}
                     </p>
                     <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
@@ -1022,10 +1022,10 @@ export default function CommandCenter() {
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${
                       selectedEntity.status === "critical"
-                        ? "bg-red-500/20 text-red-300 border-red-500/40"
+                        ? "bg-rose-50 text-rose-700 border-rose-200"
                         : selectedEntity.status === "active"
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                        : "bg-slate-600/40 text-slate-300 border-slate-600/50"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-700 border-slate-300"
                     }`}
                   >
                     {selectedEntity.status}
@@ -1039,9 +1039,8 @@ export default function CommandCenter() {
                       onClick={handleRequestPlan}
                       disabled={loading}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold
-                                 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40
-                                 hover:border-cyan-400/60 transition-all duration-150 disabled:opacity-50 disabled:cursor-wait
-                                 shadow-[0_0_12px_rgba(6,182,212,0.1)] hover:shadow-[0_0_18px_rgba(6,182,212,0.2)]"
+                                 bg-slate-900 hover:bg-slate-800 text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-wait
+                                 shadow-sm"
                     >
                       {loading ? (
                         <><Loader2 size={14} className="animate-spin" /> AI Analyzing Incident…</>
@@ -1057,10 +1056,10 @@ export default function CommandCenter() {
                       disabled={loading}
                       title="Instantly simulates a valid AI directive for end-to-end UI testing"
                       className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold
-                                 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30
-                                 hover:border-indigo-400/50 transition-all duration-150 disabled:opacity-50"
+                                 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300
+                                 transition-all duration-150 disabled:opacity-50"
                     >
-                      <Sparkles size={12} className="text-indigo-400" />
+                      <Sparkles size={12} className="text-slate-600" />
                       Simulate AI (Demo Mode)
                     </button>
                   </div>
@@ -1070,16 +1069,16 @@ export default function CommandCenter() {
 
             {/* Error Banner */}
             {error && (
-              <div className="flex items-start gap-2.5 p-3 rounded-lg border border-red-500/30 bg-red-500/10">
-                <TriangleAlert size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-2.5 p-3 rounded-lg border border-rose-200 bg-rose-50">
+                <TriangleAlert size={15} className="text-rose-600 mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-red-300">Pipeline Error</p>
-                  <p className="text-[11px] text-red-400 mt-0.5 leading-snug break-words">{error}</p>
-                  <div className="mt-2 pt-1.5 border-t border-red-500/20 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400">Want to test approval flow?</span>
+                  <p className="text-xs font-bold text-rose-800">Pipeline Error</p>
+                  <p className="text-[11px] text-rose-700 mt-0.5 leading-snug break-words">{error}</p>
+                  <div className="mt-2 pt-1.5 border-t border-rose-200 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-600">Want to test approval flow?</span>
                     <button
                       onClick={handleSimulateDemoPlan}
-                      className="text-[11px] text-cyan-300 hover:text-cyan-200 underline font-semibold flex items-center gap-1"
+                      className="text-[11px] text-slate-900 hover:underline font-semibold flex items-center gap-1"
                     >
                       <Sparkles size={10} />
                       Run Demo Plan
@@ -1091,22 +1090,22 @@ export default function CommandCenter() {
 
             {/* Snapshot Status Row */}
             {snapshot && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/60">
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Snapshot Status</span>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Snapshot Status</span>
                   {snapshot.is_demo && (
-                    <span className="text-[9px] px-1.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-semibold uppercase">
+                    <span className="text-[9px] px-1.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-semibold uppercase">
                       Demo
                     </span>
                   )}
                 </div>
                 <span
                   className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                    snapshot.status === "validated"  ? "text-cyan-300 bg-cyan-500/10 border-cyan-500/30" :
-                    snapshot.status === "approved"   ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/30" :
-                    snapshot.status === "rejected"   ? "text-red-300 bg-red-500/10 border-red-500/30" :
-                    snapshot.status === "stale"      ? "text-amber-300 bg-amber-500/10 border-amber-500/30" :
-                                                       "text-slate-300 bg-slate-700/40 border-slate-600/40"
+                    snapshot.status === "validated"  ? "text-slate-900 bg-slate-100 border-slate-300" :
+                    snapshot.status === "approved"   ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
+                    snapshot.status === "rejected"   ? "text-rose-700 bg-rose-50 border-rose-200" :
+                    snapshot.status === "stale"      ? "text-amber-700 bg-amber-50 border-amber-200" :
+                                                       "text-slate-700 bg-slate-100 border-slate-200"
                   }`}
                 >
                   {snapshot.status}
@@ -1126,21 +1125,21 @@ export default function CommandCenter() {
             {actionResult && (
               <div
                 className={`flex items-start gap-2.5 p-3 rounded-lg border ${
-                  actionResult.type === "success" ? "border-emerald-500/30 bg-emerald-500/10" :
-                  actionResult.type === "stale"   ? "border-amber-500/30 bg-amber-500/10" :
-                                                    "border-red-500/30 bg-red-500/10"
+                  actionResult.type === "success" ? "border-emerald-200 bg-emerald-50" :
+                  actionResult.type === "stale"   ? "border-amber-200 bg-amber-50" :
+                                                    "border-rose-200 bg-rose-50"
                 }`}
               >
                 {actionResult.type === "success" ? (
-                  <ShieldCheck size={15} className="text-emerald-400 mt-0.5 shrink-0" />
+                  <ShieldCheck size={15} className="text-emerald-600 mt-0.5 shrink-0" />
                 ) : actionResult.type === "stale" ? (
-                  <TriangleAlert size={15} className="text-amber-400 mt-0.5 shrink-0" />
+                  <TriangleAlert size={15} className="text-amber-600 mt-0.5 shrink-0" />
                 ) : (
-                  <ShieldX size={15} className="text-red-400 mt-0.5 shrink-0" />
+                  <ShieldX size={15} className="text-rose-600 mt-0.5 shrink-0" />
                 )}
                 <p className={`text-xs leading-snug font-semibold ${
-                  actionResult.type === "success" ? "text-emerald-300" :
-                  actionResult.type === "stale"   ? "text-amber-300" : "text-red-300"
+                  actionResult.type === "success" ? "text-emerald-800" :
+                  actionResult.type === "stale"   ? "text-amber-800" : "text-rose-800"
                 }`}>
                   {actionResult.message}
                 </p>
@@ -1149,31 +1148,31 @@ export default function CommandCenter() {
 
             {/* Reject Prompt */}
             {rejectPromptOpen && (
-              <div className="rounded-lg border border-red-500/30 bg-red-950/30 p-3 space-y-2.5">
-                <p className="text-xs font-bold text-red-300 uppercase tracking-wider">State Rejection Reason</p>
+              <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-3 space-y-2.5">
+                <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">State Rejection Reason</p>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="e.g. Resource quantities don't match field conditions..."
                   rows={3}
-                  className="w-full bg-slate-900/80 border border-red-500/30 rounded-lg p-2.5 text-xs text-slate-200
-                             placeholder-slate-600 resize-none focus:outline-none focus:border-red-400/60 focus:ring-1
-                             focus:ring-red-500/30 transition-colors"
+                  className="w-full bg-white border border-rose-300 rounded-lg p-2.5 text-xs text-slate-900
+                             placeholder-slate-400 resize-none focus:outline-none focus:border-rose-500 focus:ring-1
+                             focus:ring-rose-500 transition-colors"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleReject}
                     disabled={!rejectReason.trim() || loadingAction === "reject"}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold
-                               bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40
-                               transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                               bg-rose-600 hover:bg-rose-700 text-white
+                               transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                   >
                     {loadingAction === "reject" ? <Loader2 size={13} className="animate-spin" /> : <ShieldX size={13} />}
                     Confirm Rejection
                   </button>
                   <button
                     onClick={() => { setRejectPromptOpen(false); setRejectReason(""); }}
-                    className="px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600 transition-colors"
+                    className="px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 border border-slate-300 hover:bg-slate-100 transition-colors"
                   >
                     Cancel
                   </button>
@@ -1184,7 +1183,7 @@ export default function CommandCenter() {
 
           {/* Sticky Approval Footer */}
           {snapshot && !isDecisionFinalized && !rejectPromptOpen && (
-            <div className="shrink-0 px-4 pb-4 pt-3 border-t border-slate-700/70 bg-slate-900/95 space-y-2">
+            <div className="shrink-0 px-4 pb-4 pt-3 border-t border-slate-200 bg-white space-y-2 shadow-sm">
               {isPlanValid ? (
                 <>
                   <p className="text-[10px] text-center text-slate-500 font-medium">
@@ -1195,10 +1194,9 @@ export default function CommandCenter() {
                       onClick={handleApprove}
                       disabled={loadingAction === "approve"}
                       id="btn-approve-plan"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
-                                 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40
-                                 hover:border-emerald-400/60 transition-all disabled:opacity-50 disabled:cursor-wait
-                                 shadow-[0_0_16px_rgba(16,185,129,0.15)] hover:shadow-[0_0_22px_rgba(16,185,129,0.25)]"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold
+                                 bg-emerald-600 hover:bg-emerald-700 text-white
+                                 transition-all disabled:opacity-50 disabled:cursor-wait shadow-sm"
                     >
                       {loadingAction === "approve" ? <Loader2 size={15} className="animate-spin" /> : <ThumbsUp size={15} />}
                       Approve Plan
@@ -1206,10 +1204,9 @@ export default function CommandCenter() {
                     <button
                       onClick={() => setRejectPromptOpen(true)}
                       id="btn-reject-plan"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
-                                 bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/35
-                                 hover:border-red-400/55 transition-all
-                                 shadow-[0_0_14px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold
+                                 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200
+                                 transition-all shadow-sm"
                     >
                       <ThumbsDown size={15} />
                       Reject Plan
@@ -1218,19 +1215,19 @@ export default function CommandCenter() {
                 </>
               ) : (
                 <>
-                  <p className="text-[10px] text-center text-red-400 font-semibold">
+                  <p className="text-[10px] text-center text-rose-600 font-semibold">
                     {validationErrors.length > 0
                       ? `${validationErrors.length} validation failure(s). Approval is blocked.`
                       : "Plan unverified. Approval is blocked."}
                   </p>
                   <div className="flex gap-2">
-                    <button disabled className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-slate-800/60 text-slate-600 border border-slate-700/50 cursor-not-allowed">
+                    <button disabled className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed">
                       <ThumbsUp size={15} /> Approve Plan
                     </button>
                     <button
                       onClick={() => setRejectPromptOpen(true)}
                       id="btn-reject-failed-plan"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/35 hover:border-red-400/55 transition-all"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all shadow-sm"
                     >
                       <ThumbsDown size={15} /> Reject Plan
                     </button>
@@ -1242,13 +1239,12 @@ export default function CommandCenter() {
 
           {/* Finalized State Footer */}
           {isDecisionFinalized && (
-            <div className="shrink-0 px-4 pb-4 pt-3 border-t border-slate-700/70 bg-slate-900/95">
+            <div className="shrink-0 px-4 pb-4 pt-3 border-t border-slate-200 bg-white shadow-sm">
               <button
                 onClick={handleRequestPlan}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold
-                           bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30
-                           hover:border-cyan-400/50 transition-all"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold
+                           bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-sm disabled:opacity-50"
               >
                 <RefreshCw size={13} /> Generate New AI Plan
               </button>

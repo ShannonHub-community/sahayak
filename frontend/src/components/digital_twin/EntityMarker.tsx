@@ -44,12 +44,12 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
       >
         {/* Pulsating ring behind the dot */}
         <span
-          className="absolute inline-flex rounded-full bg-red-500 opacity-75 animate-ping"
+          className="absolute inline-flex rounded-full bg-rose-500 opacity-60 animate-ping"
           style={{ width: size, height: size }}
         />
         {/* Core dot */}
         <span
-          className="relative flex items-center justify-center rounded-full bg-red-600 border-2 border-white shadow-lg transition-transform hover:scale-110"
+          className="relative flex items-center justify-center rounded-full bg-rose-600 border-2 border-white shadow-md transition-transform hover:scale-110"
           style={{ width: size, height: size }}
         >
           <Siren
@@ -76,7 +76,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
     ) {
       return (
         <div
-          className="w-9 h-9 rounded-md bg-emerald-600 border-2 border-white shadow-lg flex items-center justify-center cursor-pointer transition-transform hover:scale-110 hover:shadow-emerald-400/60 hover:shadow-xl"
+          className="w-9 h-9 rounded-md bg-emerald-600 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
           title={`Medical Unit — ${symbol} — ${status}`}
         >
           <Plus size={18} strokeWidth={3} className="text-white" />
@@ -88,7 +88,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
     if (sym.includes("shelter") || sym.includes("camp") || sym.includes("refuge")) {
       return (
         <div
-          className="w-9 h-9 rounded-lg bg-indigo-600 border-2 border-white shadow-lg flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+          className="w-9 h-9 rounded-lg bg-blue-900 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
           title={`Shelter / Relief Camp (Capacity: ${severity_count || 'N/A'}) — ${status}`}
         >
           <Building2 size={18} strokeWidth={2.2} className="text-white" />
@@ -100,7 +100,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
     if (sym.includes("truck") || sym.includes("fire") || sym.includes("vehicle")) {
       return (
         <div
-          className="w-9 h-9 rounded-md bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+          className="w-9 h-9 rounded-md bg-blue-700 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
           title={`Rescue Vehicle — ${symbol} — ${status}`}
         >
           <Truck size={17} strokeWidth={2.5} className="text-white" />
@@ -112,7 +112,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
     if (sym.includes("boat") || sym.includes("rescue") || sym.includes("marine")) {
       return (
         <div
-          className="w-9 h-9 rounded-md bg-sky-500 border-2 border-white shadow-lg flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+          className="w-9 h-9 rounded-md bg-sky-600 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
           title={`Rescue Vessel — ${symbol} — ${status}`}
         >
           <Sailboat size={17} strokeWidth={2.5} className="text-white" />
@@ -123,7 +123,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
     // Generic resource
     return (
       <div
-        className="w-8 h-8 rounded-full bg-teal-600 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110 text-white text-[10px] font-bold uppercase tracking-wide"
+        className="w-8 h-8 rounded-full bg-slate-700 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110 text-white text-[10px] font-bold uppercase tracking-wide"
         title={`Resource Unit — ${symbol} — ${status}`}
       >
         {sym.slice(0, 2) || "R"}
@@ -135,7 +135,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
   if (entity_type === "infrastructure" || entity_type === "infra_damage") {
     return (
       <div
-        className="w-9 h-9 rounded bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+        className="w-9 h-9 rounded bg-amber-500 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
         title={`Infrastructure Damage — ${symbol} — ${status}`}
       >
         <AlertTriangle size={18} strokeWidth={2.5} className="text-white" />
@@ -147,7 +147,7 @@ export function EntityMarker({ entity }: EntityMarkerProps) {
   if (entity_type === "building" || sym.includes("building") || sym.includes("shelter")) {
     return (
       <div
-        className="w-8 h-8 rounded bg-violet-600 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+        className="w-8 h-8 rounded bg-slate-700 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
         title={`Structure — ${symbol} — ${status}`}
       >
         <Building2 size={16} strokeWidth={2} className="text-white" />
