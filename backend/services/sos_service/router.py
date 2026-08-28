@@ -5,12 +5,13 @@ SOS Service API routes.
 """
 from fastapi import APIRouter
 
-import service
-from schemas import SOSSubmitRequest, SOSSubmitResponse
+from services.sos_service import service
+from services.sos_service.schemas import SOSSubmitRequest, SOSSubmitResponse
 
-sos_submit_router = APIRouter(prefix="/api/sos", tags=["sos"])
+router = APIRouter(prefix="/api/sos", tags=["sos"])
+sos_submit_router = router
 
 
-@sos_submit_router.post("", response_model=SOSSubmitResponse)
+@router.post("", response_model=SOSSubmitResponse)
 def submit_sos(req: SOSSubmitRequest):
     return service.submit_sos(req)

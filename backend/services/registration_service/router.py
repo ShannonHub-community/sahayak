@@ -11,8 +11,8 @@ import os
 
 from fastapi import APIRouter, Cookie, Header, Request, Response
 
-import service
-from schemas import (
+from services.registration_service import service
+from services.registration_service.schemas import (
     AadhaarVerifyRequest,
     AadhaarVerifyResponse,
     AutofillResponse,

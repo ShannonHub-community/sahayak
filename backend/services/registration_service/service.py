@@ -28,9 +28,9 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from shared import identity_verification as idv
-from shared.database import get_db
-from schemas import RegistrationSubmitRequest
+from services.registration_service.shared import identity_verification as idv
+from services.registration_service.shared.database import get_db
+from services.registration_service.schemas import RegistrationSubmitRequest
 
 SESSION_TTL_MINUTES = 15
 TOKEN_BYTES = 32
