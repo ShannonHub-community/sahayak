@@ -5,12 +5,12 @@ import {
   Bot,
   ShieldCheck,
   ShieldX,
-  CheckCircle2,
-  XCircle,
+  CircleCheck,
+  CircleX,
   Loader2,
   ChevronRight,
   ChevronDown,
-  AlertTriangle,
+  TriangleAlert,
   PackageSearch,
   Brain,
   ThumbsUp,
@@ -189,9 +189,9 @@ function ValidationCheckRow({ check }: { check: ValidationCheck }) {
       }`}
     >
       {check.passed ? (
-        <CheckCircle2 size={15} className="text-emerald-400 mt-0.5 shrink-0" />
+        <CircleCheck size={15} className="text-emerald-400 mt-0.5 shrink-0" />
       ) : (
-        <XCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
+        <CircleX size={15} className="text-red-400 mt-0.5 shrink-0" />
       )}
       <div className="min-w-0">
         <p className={`text-xs font-semibold ${check.passed ? "text-emerald-300" : "text-red-300"}`}>
@@ -253,12 +253,12 @@ function ValidationSection({ validationResult }: { validationResult: ValidationR
         <div className="flex items-center gap-2">
           {isValid ? (
             <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
-              <CheckCircle2 size={12} />
+              <CircleCheck size={12} />
               Passed
             </span>
           ) : (
             <span className="flex items-center gap-1 text-[10px] font-semibold text-red-400">
-              <XCircle size={12} />
+              <CircleX size={12} />
               {errors.length} failure{errors.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -277,7 +277,7 @@ function ValidationSection({ validationResult }: { validationResult: ValidationR
             checks.map((check) => <ValidationCheckRow key={check.name} check={check} />)
           ) : (
             <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 flex items-start gap-2">
-              <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+              <TriangleAlert size={14} className="text-red-400 mt-0.5 shrink-0" />
               <p className="text-xs text-red-300 leading-snug">
                 Validation data missing or API error. Checks could not be completed.
               </p>
@@ -984,7 +984,7 @@ export default function CommandCenter() {
             {selectedEntity && !isActionableIncident && (
               <div className="flex flex-col items-center justify-center gap-3 mt-6 text-center">
                 <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-lg">
-                  <AlertTriangle size={24} className="text-amber-400" />
+                  <TriangleAlert size={24} className="text-amber-400" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-200">
@@ -1071,7 +1071,7 @@ export default function CommandCenter() {
             {/* Error Banner */}
             {error && (
               <div className="flex items-start gap-2.5 p-3 rounded-lg border border-red-500/30 bg-red-500/10">
-                <AlertTriangle size={15} className="text-red-400 mt-0.5 shrink-0" />
+                <TriangleAlert size={15} className="text-red-400 mt-0.5 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-red-300">Pipeline Error</p>
                   <p className="text-[11px] text-red-400 mt-0.5 leading-snug break-words">{error}</p>
@@ -1134,7 +1134,7 @@ export default function CommandCenter() {
                 {actionResult.type === "success" ? (
                   <ShieldCheck size={15} className="text-emerald-400 mt-0.5 shrink-0" />
                 ) : actionResult.type === "stale" ? (
-                  <AlertTriangle size={15} className="text-amber-400 mt-0.5 shrink-0" />
+                  <TriangleAlert size={15} className="text-amber-400 mt-0.5 shrink-0" />
                 ) : (
                   <ShieldX size={15} className="text-red-400 mt-0.5 shrink-0" />
                 )}
