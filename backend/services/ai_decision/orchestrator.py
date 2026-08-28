@@ -184,7 +184,7 @@ async def approve_plan(
 
     ticket_record = {
         "id": str(uuid.uuid4()),
-        "order_name": f"AI Plan Approved: {disaster_type} Evacuation & Resource Deployment ({priority_level} Priority)",
+        "order_name": f"AI Plan Approved [Snap: {snapshot_id_str[:8]}]: {disaster_type} Evacuation & Resource Deployment ({priority_level} Priority)",
         "type": "Resource Dispatch & Evacuation",
         "department": "Disaster Logistics & Command",
         "status": "proceeded",
@@ -192,7 +192,6 @@ async def approve_plan(
         "executed_by": "Field Workforce Teams",
         "source": "ai_decision",
         "revert_reason": None,
-        "decision_snapshot_id": snapshot_id_str,
         "created_at": now_iso,
         "updated_at": now_iso,
     }
@@ -258,7 +257,7 @@ async def reject_plan(
     # 3. Mandatory Audit Trail Logging in `tickets` table (Rule 6)
     ticket_record = {
         "id": str(uuid.uuid4()),
-        "order_name": f"AI Plan Rejected: {reason[:60]}",
+        "order_name": f"AI Plan Rejected [Snap: {snapshot_id_str[:8]}]: {reason[:40]}...",
         "type": "AI Decision Rejection",
         "department": "Disaster Logistics & Command",
         "status": "reverted",
@@ -266,7 +265,6 @@ async def reject_plan(
         "executed_by": "None",
         "source": "ai_decision",
         "revert_reason": reason,
-        "decision_snapshot_id": snapshot_id_str,
         "created_at": now_iso,
         "updated_at": now_iso,
     }

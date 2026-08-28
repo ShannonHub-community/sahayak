@@ -46,6 +46,7 @@ interface Recommendation {
   target_unit_id?: string;
   target_unit_name?: string;
   destination_ward?: string;
+  destination?: string;
   allocated_resources?: AllocatedResource[];
 }
 
@@ -131,8 +132,19 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Helper sub-components
+// Helper sub-components & formatters
 // ---------------------------------------------------------------------------
+
+const formatId = (id: string) => (id?.length > 12 ? id.slice(0, 8).toUpperCase() : id);
+
+const formatDestination = (dest?: string) => {
+  if (!dest) return "";
+  const isUuidOrHex = /^[0-9a-fA-F-]{16,}$/.test(dest.trim());
+  if (isUuidOrHex || (dest.length > 20 && !dest.includes(" "))) {
+    return formatId(dest);
+  }
+  return dest;
+};
 
 function ConfidenceBadge({ score, level }: { score?: number; level?: string }) {
   if (score !== undefined) {
@@ -317,7 +329,7 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
             <div className="flex items-center gap-1.5">
               <Hash size={11} className="text-cyan-500 shrink-0" />
               <span className="text-xs font-bold text-cyan-300 tracking-wider font-mono">
-                {aiPlan.directive_id ?? "—"}
+                {aiPlan.directive_id ? formatId(aiPlan.directive_id) : "—"}
               </span>
             </div>
             {aiPlan.priority_level && (
@@ -340,7 +352,7 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
               />
             )}
             {aiPlan.incident_ref && (
-              <MetaRow icon={<MapPin size={11} />} label="Incident Ref" value={aiPlan.incident_ref} />
+              <MetaRow icon={<MapPin size={11} />} label="Incident Ref" value={formatId(aiPlan.incident_ref)} />
             )}
             {aiPlan.timestamp && (
               <MetaRow
@@ -357,7 +369,7 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
         </div>
 
         {/* Dispatch Target */}
-        {(rec.target_unit_name || rec.destination_ward) && (
+        {(rec.target_unit_name || rec.destination_ward || rec.destination) && (
           <div className="rounded-lg bg-slate-800/50 border border-slate-700/50 p-3 space-y-1.5">
             <div className="flex items-center gap-1.5 mb-1">
               <Users size={11} className="text-cyan-500" />
@@ -367,10 +379,14 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
               <MetaRow icon={<Users size={11} />} label="Unit" value={rec.target_unit_name} />
             )}
             {rec.target_unit_id && (
-              <MetaRow icon={<Hash size={11} />} label="Unit ID" value={<span className="font-mono">{rec.target_unit_id}</span>} />
+              <MetaRow icon={<Hash size={11} />} label="Unit ID" value={<span className="font-mono">{formatId(rec.target_unit_id)}</span>} />
             )}
-            {rec.destination_ward && (
-              <MetaRow icon={<MapPin size={11} />} label="Destination" value={rec.destination_ward} />
+            {(rec.destination_ward || rec.destination) && (
+              <MetaRow
+                icon={<MapPin size={11} />}
+                label="Destination"
+                value={formatDestination(rec.destination_ward || rec.destination)}
+              />
             )}
           </div>
         )}
@@ -390,7 +406,7 @@ function AiPlanDisplay({ aiPlan }: { aiPlan: AiProposedPlan }) {
                 >
                   <div className="min-w-0">
                     <p className="text-[11px] text-slate-200 font-medium truncate">{r.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">{r.item_id}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">{formatId(r.item_id)}</p>
                   </div>
                   <span className="text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-full shrink-0">
                     ×{r.quantity}
@@ -661,6 +677,18 @@ export default function CommandCenter() {
     setRejectReason("");
   }, []);
 
+  const [prevEntityId, setPrevEntityId] = useState<string | undefined>(selectedEntity?.id);
+
+  // ── Auto-Reset on Pin Change ───────────────────────────────────────────────
+  if (selectedEntity?.id !== prevEntityId) {
+    setPrevEntityId(selectedEntity?.id);
+    setSnapshot(null);
+    setError(null);
+    setActionResult(null);
+    setRejectPromptOpen(false);
+    setRejectReason("");
+  }
+
   // ── Request AI Plan (Live API) ───────────────────────────────────────────
   const handleRequestPlan = useCallback(async () => {
     if (!selectedEntity) return;
@@ -700,99 +728,25 @@ export default function CommandCenter() {
   }, [selectedEntity, resetPlanState]);
 
   // ── Simulate AI Plan (Demo Mode) ─────────────────────────────────────────
-  const handleSimulateDemoPlan = useCallback(() => {
+  const handleSimulateDemoPlan = useCallback(async () => {
     if (!selectedEntity) return;
     resetPlanState();
-
-    const nowIso = new Date().toISOString();
-    const demoId = `demo-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
-
-    const mockSnapshot: DecisionSnapshot = {
-      id: demoId,
-      incident_ref: selectedEntity.id,
-      disaster_type: "flood",
-      priority_level: "high",
-      injury_severity: "critical",
-      status: "validated",
-      is_demo: true,
-      created_at: nowIso,
-      procedure_payload: { boat_capacity: 5, medic_required: true },
-      ai_proposed_plan: {
-        directive_id: "AI-DIR-8042",
-        timestamp: "2026-08-04T14:05:00Z",
-        priority_level: "CRITICAL",
-        incident_ref: "SOS-102",
-        action_type: "DISPATCH_WORKFORCE",
-        recommendation: {
-          target_unit_id: "OFF-101",
-          target_unit_name: "NDRF Unit 1 (5 Members - Boat Active)",
-          destination_ward: "Ward 1 (Old Panvel)",
-          allocated_resources: [
-            { item_id: "RES-09", name: "Medical Kit Type B", quantity: 2 },
-          ],
-        },
-        ai_reasoning:
-          "NDRF Unit 1 is currently on Standby, located 1.2km from SOS-102. They possess the required watercraft for the 3ft waterlogging reported.",
-        confidence_score: 94,
-      },
-      validation_result: {
-        valid: true,
-        checks: [
-          {
-            name: "schema_integrity",
-            passed: true,
-            details: "All mandatory directive fields, data types, and confidence metrics conform to pipeline standard.",
-          },
-          {
-            name: "resource_availability",
-            passed: true,
-            details: "NDRF Unit 1 confirmed 'available' (Standby). Medical Kit Type B (×2) confirmed in Panvel Depot.",
-          },
-          {
-            name: "procedure_compliance",
-            passed: true,
-            details: "Dispatch unit possesses active watercraft (boat_capacity ≥ 5) and medic_required=true constraint is satisfied.",
-          },
-        ],
-        errors: [],
-        validated_at: nowIso,
-      },
-    };
-
-    setSnapshot(mockSnapshot);
-  }, [selectedEntity, resetPlanState]);
-
-  // ── Approve Plan ─────────────────────────────────────────────────────────
-  const handleApprove = useCallback(async () => {
-    if (!snapshot) return;
-    setLoadingAction("approve");
-    setActionResult(null);
-
-    if (snapshot.is_demo || snapshot.id.startsWith("demo-")) {
-      setTimeout(() => {
-        setSnapshot((prev) => (prev ? { ...prev, status: "approved" } : prev));
-        setActionResult({ type: "success", message: `✓ [Demo] Plan approved. Ticket AI-DIR-8042 logged to audit trail.` });
-        setLoadingAction(null);
-      }, 450);
-      return;
-    }
+    setLoading(true);
 
     try {
-      const resp = await fetch(`${API_BASE}/api/v1/ai-decision/${snapshot.id}/approve`, {
+      const resp = await fetch(`${API_BASE}/api/v1/ai-decision/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ officer_id: MOCK_OFFICER_ID }),
+        body: JSON.stringify({
+          incident_ref: selectedEntity.id,
+          disaster_type: "flood",
+          priority_level: "high",
+          injury_severity: "critical",
+        }),
       });
 
-      if (resp.status === 409) {
-        const data = await resp.json();
-        const reason = data?.detail?.message || data?.detail?.staleness?.reason || "Live conditions have changed.";
-        setActionResult({ type: "stale", message: `Plan stale — ${reason} Re-run the plan.` });
-        return;
-      }
-
       if (!resp.ok) {
-        let errorMsg = `Approval failed (${resp.status})`;
+        let errorMsg = `Server error (Status: ${resp.status})`;
         try {
           const errorData = await resp.json();
           errorMsg = typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail ?? errorData);
@@ -804,10 +758,84 @@ export default function CommandCenter() {
       }
 
       const data = await resp.json();
-      setSnapshot((prev) => (prev ? { ...prev, status: "approved" } : prev));
-      setActionResult({ type: "success", message: `✓ Plan approved. Audit ticket logged (${data?.ticket?.id?.slice(0, 8) ?? "created"}...).` });
+      if (!data || typeof data !== "object" || !data.id) {
+        throw new Error("Invalid response format received from AI Decision API.");
+      }
+      setSnapshot(data as DecisionSnapshot);
     } catch (err: unknown) {
-      setActionResult({ type: "error", message: err instanceof Error ? err.message : "Approval failed." });
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setSnapshot(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedEntity, resetPlanState]);
+
+  // ── Approve Plan ─────────────────────────────────────────────────────────
+  const handleApprove = useCallback(async () => {
+    if (!snapshot?.id) {
+      const msg = "No active decision snapshot found to approve.";
+      setActionResult({ type: "error", message: msg });
+      alert(msg);
+      return;
+    }
+
+    setLoadingAction("approve");
+    setActionResult(null);
+
+    const snapshotId = snapshot.id;
+    const officerId = MOCK_OFFICER_ID || "officer-123";
+
+    try {
+      const resp = await fetch(
+        `${API_BASE}/api/v1/ai-decision/${snapshotId}/approve?officer_id=${encodeURIComponent(officerId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ officer_id: officerId }),
+        }
+      );
+
+      if (resp.status === 409) {
+        const data = await resp.json();
+        const reason =
+          data?.detail?.message ||
+          data?.detail?.staleness?.reason ||
+          "Live conditions have changed.";
+        const msg = `Plan stale — ${reason} Please re-run AI analysis.`;
+        setActionResult({
+          type: "stale",
+          message: msg,
+        });
+        alert(`Warning: ${msg}`);
+        return;
+      }
+
+      if (!resp.ok) {
+        let errorMsg = `Approval failed (${resp.status})`;
+        try {
+          const errorData = await resp.json();
+          errorMsg =
+            typeof errorData.detail === "string"
+              ? errorData.detail
+              : JSON.stringify(errorData.detail ?? errorData);
+        } catch {
+          const raw = await resp.text();
+          if (raw) errorMsg = raw;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await resp.json();
+      setSnapshot((prev) => (prev ? { ...prev, status: "approved" } : prev));
+      const ticketId = data?.ticket?.id?.slice(0, 8) ?? "created";
+      setActionResult({
+        type: "success",
+        message: `✓ Plan approved. Audit ticket logged (${ticketId}...).`,
+      });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Approval failed.";
+      setActionResult({ type: "error", message: errorMsg });
+      alert(`Approval Error: ${errorMsg}`);
     } finally {
       setLoadingAction(null);
     }
@@ -815,33 +843,42 @@ export default function CommandCenter() {
 
   // ── Reject Plan ──────────────────────────────────────────────────────────
   const handleReject = useCallback(async () => {
-    if (!snapshot || !rejectReason.trim()) return;
-    setLoadingAction("reject");
-    setActionResult(null);
-
-    if (snapshot.is_demo || snapshot.id.startsWith("demo-")) {
-      setTimeout(() => {
-        setSnapshot((prev) => (prev ? { ...prev, status: "rejected" } : prev));
-        setActionResult({ type: "error", message: `✗ [Demo] Plan rejected: "${rejectReason.trim()}". Reversion logged.` });
-        setRejectPromptOpen(false);
-        setRejectReason("");
-        setLoadingAction(null);
-      }, 450);
+    if (!snapshot?.id) {
+      const msg = "No active decision snapshot found to reject.";
+      setActionResult({ type: "error", message: msg });
+      alert(msg);
+      return;
+    }
+    if (!rejectReason.trim()) {
+      alert("Please enter a reason for rejecting the plan.");
       return;
     }
 
+    setLoadingAction("reject");
+    setActionResult(null);
+
+    const snapshotId = snapshot.id;
+    const officerId = MOCK_OFFICER_ID || "officer-123";
+    const reasonText = rejectReason.trim();
+
     try {
-      const resp = await fetch(`${API_BASE}/api/v1/ai-decision/${snapshot.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ officer_id: MOCK_OFFICER_ID, reason: rejectReason.trim() }),
-      });
+      const resp = await fetch(
+        `${API_BASE}/api/v1/ai-decision/${snapshotId}/reject?officer_id=${encodeURIComponent(officerId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ officer_id: officerId, reason: reasonText }),
+        }
+      );
 
       if (!resp.ok) {
         let errorMsg = `Rejection failed (${resp.status})`;
         try {
           const errorData = await resp.json();
-          errorMsg = typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail ?? errorData);
+          errorMsg =
+            typeof errorData.detail === "string"
+              ? errorData.detail
+              : JSON.stringify(errorData.detail ?? errorData);
         } catch {
           const raw = await resp.text();
           if (raw) errorMsg = raw;
@@ -850,11 +887,16 @@ export default function CommandCenter() {
       }
 
       setSnapshot((prev) => (prev ? { ...prev, status: "rejected" } : prev));
-      setActionResult({ type: "error", message: `✗ Plan rejected. Reversion logged to tickets table.` });
+      setActionResult({
+        type: "error",
+        message: `✗ Plan rejected: "${reasonText}". Reversion logged to tickets table.`,
+      });
       setRejectPromptOpen(false);
       setRejectReason("");
     } catch (err: unknown) {
-      setActionResult({ type: "error", message: err instanceof Error ? err.message : "Rejection failed." });
+      const errorMsg = err instanceof Error ? err.message : "Rejection failed.";
+      setActionResult({ type: "error", message: errorMsg });
+      alert(`Rejection Error: ${errorMsg}`);
     } finally {
       setLoadingAction(null);
     }
@@ -974,7 +1016,7 @@ export default function CommandCenter() {
                       {selectedEntity.symbol?.replace(/_/g, " ")}
                     </p>
                     <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
-                      ID: {selectedEntity.id?.slice(0, 18)}…
+                      ID: {formatId(selectedEntity.id)}
                     </p>
                   </div>
                   <span

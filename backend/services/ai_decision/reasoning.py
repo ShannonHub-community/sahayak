@@ -22,7 +22,7 @@ import logging
 import os
 import random
 from datetime import datetime, timezone
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 import httpx
@@ -95,6 +95,8 @@ outside the JSON object — no markdown fences, no prose, no commentary, no expl
 _CHAT_SYSTEM_PROMPT = (
     "You are a disaster response intelligence assistant for the Sahayak emergency management system. "
     "Use the provided live database context to answer the user's question concisely. "
+    "When answering, explicitly reference specific landmark names, depth numbers, workforce units, and statuses "
+    "provided in the context to ground your answer in the data. "
     "Do not use JSON formatting; reply in clean, readable text."
 )
 
@@ -110,6 +112,7 @@ def _build_user_prompt(
     - live environment state from the frozen snapshot
     - baseline resource requirements from the matched procedure
     - scenario constraints from procedure_notes
+    - explicit mandatory allocation rules matching procedure requirements
     - a concrete output skeleton the AI must fill in
     """
     incident = snapshot_data.get("incident", {})
@@ -118,17 +121,141 @@ def _build_user_prompt(
     risk_scores = snapshot_data.get("risk_scores", [])
     captured_at = snapshot_data.get("captured_at", "unknown")
 
-    # Build a concrete example skeleton using actual data from snapshot so
-    # the AI can see exactly which IDs and names are available
     first_workforce = workforce[0] if workforce else {}
-    first_resource = resources[0] if resources else {}
     example_unit_id = str(first_workforce.get("id", first_workforce.get("unit_id", "unit-001")))
     example_unit_name = str(first_workforce.get("unit_name", first_workforce.get("name", "Response Unit 1")))
     example_ward = str(incident.get("ward", incident.get("location", "Ward 1 (Old Panvel)")))
-    example_res_id = str(first_resource.get("id", "res-001"))
-    example_res_name = str(first_resource.get("name", "Medical Kit Type B"))
     now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     dir_num = random.randint(1000, 9999)
+
+    # 1. Helper to find matching available resource from snapshot
+    def find_matching_res(*keywords: str) -> Optional[Dict[str, Any]]:
+        for r in resources:
+            if not isinstance(r, dict):
+                continue
+            haystack = f"{r.get('name', '')} {r.get('subtype', '')} {r.get('category', '')}".lower()
+            if any(kw.lower() in haystack for kw in keywords) and str(r.get("status", "available")).lower() == "available":
+                return r
+        return None
+
+    # 2. Inspect required_resources and build mandatory rules + sample allocations
+    req_rules: List[str] = []
+    sample_allocated: List[Dict[str, Any]] = []
+
+    if required_resources and isinstance(required_resources, dict):
+        if "food_water_rations" in required_resources:
+            qty_req = int(required_resources["food_water_rations"])
+            req_rules.append(
+                f"- food_water_rations: {qty_req} -> You MUST include an item with name containing 'Ration', 'Food', or 'Water' and quantity >= {qty_req} in `allocated_resources`."
+            )
+            matched_res = find_matching_res("ration", "food", "water")
+            if matched_res:
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-ration")),
+                    "name": str(matched_res.get("name", "Emergency Food & Water Pack")),
+                    "quantity": qty_req,
+                })
+
+        if "boat_capacity" in required_resources:
+            cap_req = int(required_resources["boat_capacity"])
+            req_rules.append(
+                f"- boat_capacity: {cap_req} -> You MUST include boats (e.g. inflatable rescue boat) with combined capacity >= {cap_req} in `allocated_resources`."
+            )
+            matched_res = find_matching_res("boat")
+            if matched_res:
+                unit_cap = int(matched_res.get("capacity") or 5)
+                needed_qty = max(1, (cap_req + unit_cap - 1) // unit_cap)
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-boat")),
+                    "name": str(matched_res.get("name", "Inflatable Motor Rescue Boat")),
+                    "quantity": needed_qty,
+                })
+
+        if required_resources.get("medic_required") is True:
+            req_rules.append(
+                "- medic_required: true -> You MUST include a medical unit / medic kit (name containing 'Medic', 'Medical', or 'Trauma') in `allocated_resources` with quantity >= 1."
+            )
+            matched_res = find_matching_res("medic", "medical", "paramedic", "trauma")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-med")),
+                    "name": str(matched_res.get("name", "Trauma Medical Kit")),
+                    "quantity": 1,
+                })
+
+        if required_resources.get("heavy_rescue_gear") is True:
+            req_rules.append(
+                "- heavy_rescue_gear: true -> You MUST include heavy rescue gear / equipment (name containing 'Gear', 'Rescue', 'Stretcher', or 'Equipment') with quantity >= 1."
+            )
+            matched_res = find_matching_res("gear", "rescue", "stretcher", "equipment")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-gear")),
+                    "name": str(matched_res.get("name", "Heavy Rescue Equipment Kit")),
+                    "quantity": 1,
+                })
+
+        if "first_aid_kits" in required_resources:
+            fa_req = int(required_resources["first_aid_kits"])
+            req_rules.append(
+                f"- first_aid_kits: {fa_req} -> You MUST include first aid kits with quantity >= {fa_req} in `allocated_resources`."
+            )
+            matched_res = find_matching_res("first aid", "first_aid", "kit")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-fa")),
+                    "name": str(matched_res.get("name", "First Aid Kit Type-A")),
+                    "quantity": fa_req,
+                })
+
+        if required_resources.get("drone_payload") is True:
+            req_rules.append(
+                "- drone_payload: true -> You MUST include drone units or payload items with quantity >= 1."
+            )
+            matched_res = find_matching_res("drone", "payload")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-drone")),
+                    "name": str(matched_res.get("name", "Surveillance & Payload Drone")),
+                    "quantity": 1,
+                })
+
+        if "engineering_team" in required_resources:
+            eng_req = int(required_resources["engineering_team"])
+            req_rules.append(
+                f"- engineering_team: {eng_req} -> You MUST include engineering team items (name containing 'Engineer') with quantity >= {eng_req} in `allocated_resources`."
+            )
+            matched_res = find_matching_res("engineer")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-eng")),
+                    "name": str(matched_res.get("name", "Civil Engineering Repair Team")),
+                    "quantity": eng_req,
+                })
+
+        if "barricades" in required_resources:
+            bar_req = int(required_resources["barricades"])
+            req_rules.append(
+                f"- barricades: {bar_req} -> You MUST include barricades/barriers with quantity >= {bar_req} in `allocated_resources`."
+            )
+            matched_res = find_matching_res("barricade", "barrier")
+            if matched_res and not any(s["item_id"] == str(matched_res.get("id")) for s in sample_allocated):
+                sample_allocated.append({
+                    "item_id": str(matched_res.get("id", "res-bar")),
+                    "name": str(matched_res.get("name", "Mobile Water Barrier")),
+                    "quantity": bar_req,
+                })
+
+    if not sample_allocated:
+        first_res = resources[0] if resources else {}
+        sample_allocated.append({
+            "item_id": str(first_res.get("id", "res-001")),
+            "name": str(first_res.get("name", "Emergency Medical Kit")),
+            "quantity": 1,
+        })
+
+    formatted_rules = "\n".join(req_rules) if req_rules else "- Standard dispatch: allocate appropriate resources from inventory."
+    sample_allocated_json = json.dumps(sample_allocated, indent=6)
 
     return f"""\
 ## LIVE SNAPSHOT (captured at {captured_at})
@@ -154,12 +281,25 @@ Incident Reference ID: {incident_ref}
 ### Procedure Instructions / Constraints
 {procedure_notes or "No additional instructions provided."}
 
+## MANDATORY PROCEDURE ALLOCATION REQUIREMENTS
+You MUST allocate resources in `recommendation.allocated_resources` that fulfill EVERY item listed below:
+{formatted_rules}
+
+CRITICAL RULES:
+- Every allocated resource item MUST match an item from the "Available Resources Inventory" list above (using its exact item_id and name).
+- If food_water_rations is required (e.g. quantity N), you MUST include an item with name containing 'Ration' or 'Food' or 'Water' and quantity >= N in `allocated_resources`.
+- If boat_capacity is required (e.g. capacity N), ensure boats with combined capacity >= N are included in `allocated_resources`.
+- If medic_required is true, ensure a medical unit / medic item is included in `allocated_resources`.
+- If barricades or engineering_team are required, include them with their required quantities in `allocated_resources`.
+- If heavy_rescue_gear, first_aid_kits, or drone_payload are specified, allocate the corresponding items with required quantities.
+- Failure to allocate these mandatory items will cause automated validator rejection.
+
 ## YOUR TASK
 Produce the directive JSON exactly as specified in your system instructions.
 Every field is MANDATORY. Do NOT omit any field.
 Use the incident reference ID "{incident_ref}" as the value for "incident_ref".
 
-Here is the EXACT skeleton you MUST fill in — replace only the angle-bracket values:
+Here is the EXACT skeleton you MUST fill in — replace only the angle-bracket values while ensuring all procedure requirements are allocated:
 
 {{
   "directive_id": "AI-DIR-{dir_num}",
@@ -171,9 +311,7 @@ Here is the EXACT skeleton you MUST fill in — replace only the angle-bracket v
     "target_unit_id": "<pick best unit ID from workforce list, e.g. {example_unit_id}>",
     "target_unit_name": "<name of that unit, e.g. {example_unit_name}>",
     "destination_ward": "<incident location, e.g. {example_ward}>",
-    "allocated_resources": [
-      {{ "item_id": "<resource ID from inventory, e.g. {example_res_id}>", "name": "<e.g. {example_res_name}>", "quantity": 1 }}
-    ]
+    "allocated_resources": {sample_allocated_json}
   }},
   "ai_reasoning": "<2-3 sentence explanation referencing distances, statuses, and capacities from the snapshot>",
   "confidence_score": 85
@@ -468,76 +606,114 @@ async def generate_chat_response(user_message: str) -> str:
     client = await get_async_supabase_client()
 
     # 1. Fetch high-level live state summary from ALL relevant tables
-    sos_summary: Dict[str, Any] = {"count": 0, "active": []}
-    twin_summary: Dict[str, Any] = {"count": 0, "entities": []}
-    resources_summary: Dict[str, Any] = {"count": 0, "available": []}
-    workforce_summary: Dict[str, Any] = {"count": 0, "assignments": []}
-    risk_summary: Dict[str, Any] = {"zones": []}
+    sos_summary: Dict[str, Any] = {"count": 0}
+    twin_summary: Dict[str, Any] = {"count": 0}
+    resources_summary: Dict[str, Any] = {"count": 0}
+    workforce_summary: Dict[str, Any] = {"count": 0}
 
     # Query sos_reports (may be empty)
+    sos_lines = []
     try:
-        sos_res = await client.table("sos_reports").select("id, status, priority, description, location").limit(10).execute()
+        sos_res = await client.table("sos_reports").select("*").limit(10).execute()
         if sos_res.data:
             sos_summary["count"] = len(sos_res.data)
-            sos_summary["active"] = sos_res.data
+            for s in sos_res.data:
+                sos_lines.append(
+                    f"- SOS: Status: {s.get('status', 'unknown')}, Data: {json.dumps(s, default=str)}"
+                )
     except Exception as e:
         logger.warning(f"Chat context: failed to query sos_reports: {e}")
 
     # Query twin_state — this is where the actual map marker data lives
+    twin_lines = []
     try:
-        twin_res = await client.table("twin_state").select("id, entity_type, symbol, status, severity_count, location, last_updated").limit(20).execute()
+        twin_res = await client.table("twin_state").select("*").limit(20).execute()
         if twin_res.data:
             twin_summary["count"] = len(twin_res.data)
-            twin_summary["entities"] = twin_res.data
+            for t in twin_res.data:
+                twin_lines.append(
+                    f"- Entity: {t.get('entity_type')}, Status: {t.get('status')}, Severity: {t.get('severity_count')}, Data: {json.dumps(t, default=str)}"
+                )
+                
             # Merge SOS-type twin entities into sos_summary for coherent context
             sos_twins = [e for e in twin_res.data if e.get("entity_type") in ("sos_report", "sos")]
             if sos_twins and sos_summary["count"] == 0:
                 sos_summary["count"] = len(sos_twins)
-                sos_summary["active"] = sos_twins
+                for s in sos_twins:
+                    sos_lines.append(
+                        f"- Map SOS Marker: Status: {s.get('status')}, Data: {json.dumps(s, default=str)}"
+                    )
     except Exception as e:
         logger.warning(f"Chat context: failed to query twin_state: {e}")
 
     # Query resources table
+    res_lines = []
     try:
-        res_res = await client.table("resources").select("id, name, subtype, quantity, status").eq("status", "available").limit(15).execute()
+        res_res = await client.table("resources").select("*").eq("status", "available").limit(15).execute()
         if res_res.data:
             resources_summary["count"] = len(res_res.data)
-            resources_summary["available"] = res_res.data
+            for r in res_res.data:
+                res_lines.append(
+                    f"- Resource: {r.get('name')}, Status: {r.get('status')}, Quantity: {r.get('quantity')}, Data: {json.dumps(r, default=str)}"
+                )
     except Exception as e:
         logger.warning(f"Chat context: failed to query resources: {e}")
 
     # Query workforce_assignments table
+    wf_lines = []
     try:
-        wf_res = await client.table("workforce_assignments").select("id, unit_name, status, ward, current_task").limit(10).execute()
+        wf_res = await client.table("workforce_assignments").select("*").limit(10).execute()
         if wf_res.data:
             workforce_summary["count"] = len(wf_res.data)
-            workforce_summary["assignments"] = wf_res.data
+            for w in wf_res.data:
+                wf_lines.append(
+                    f"- Workforce Unit: {w.get('unit_name')}, Status: {w.get('status')}, Ward: {w.get('ward')}, Data: {json.dumps(w, default=str)}"
+                )
     except Exception as e:
         logger.warning(f"Chat context: failed to query workforce_assignments: {e}")
 
     # Query risk_scores table
+    risk_lines = []
     try:
-        risk_res = await client.table("risk_scores").select("ward, flood_depth, severity").limit(10).execute()
+        risk_res = await client.table("risk_scores").select("*").limit(10).execute()
         if risk_res.data:
-            risk_summary["zones"] = risk_res.data
+            for r in risk_res.data:
+                risk_lines.append(
+                    f"- Risk Zone: Ward: {r.get('ward')}, Depth: {r.get('flood_depth')}, Severity: {r.get('severity')}, Data: {json.dumps(r, default=str)}"
+                )
     except Exception as e:
         logger.warning(f"Chat context: failed to query risk_scores: {e}")
+
+    sos_block = "\n".join(sos_lines) if sos_lines else "None"
+    twin_block = "\n".join(twin_lines) if twin_lines else "None"
+    res_block = "\n".join(res_lines) if res_lines else "None"
+    wf_block = "\n".join(wf_lines) if wf_lines else "None"
+    risk_block = "\n".join(risk_lines) if risk_lines else "None"
 
     # 2. Build contextual prompt for Lyzr agent
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     context_prompt = f"""\
 LIVE DISASTER TELEMETRY & SITUATION CONTEXT ({now_str}):
-- Active SOS Incidents ({sos_summary['count']}): {json.dumps(sos_summary['active'], default=str)}
-- Digital Twin Map Entities ({twin_summary['count']}): {json.dumps(twin_summary['entities'], default=str)}
-- Available Depot Resources ({resources_summary['count']}): {json.dumps(resources_summary['available'], default=str)}
-- Workforce Units ({workforce_summary['count']}): {json.dumps(workforce_summary['assignments'], default=str)}
-- Monitored Risk Zones: {json.dumps(risk_summary['zones'], default=str)}
+- Active SOS Incidents ({sos_summary['count']}):
+{sos_block}
+
+- Digital Twin Map Entities ({twin_summary['count']}):
+{twin_block}
+
+- Available Depot Resources ({resources_summary['count']}):
+{res_block}
+
+- Workforce Units ({workforce_summary['count']}):
+{wf_block}
+
+- Monitored Risk Zones:
+{risk_block}
 
 OFFICER QUESTION:
 "{user_message}"
 
 INSTRUCTIONS:
-Answer the officer's question accurately and concisely based on the live context above. Do NOT format your reply as JSON. Reply with clear, professional plain text or markdown bullets if helpful.
+Answer the officer's question accurately and concisely based on the live context above. Note that for flood markers in twin_state, severity counts like 42 or 26 often denote depth in decimeters (e.g. 42 = 4.2m). Reference specific landmarks, locations, depths, and resource figures from the data. Do NOT format your reply as JSON. Reply with clear, professional plain text or markdown bullets if helpful.
 """
 
     session_id = f"sahayak-chat-session-{datetime.now(timezone.utc).strftime('%Y%m%d%H')}"
