@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Domain Routers
+from routers.citizen_router import router as citizen_ivr_router
 from services.sos_service.router import router as sos_router
 from services.registration_service.router import (
     citizen_router,
@@ -55,9 +56,10 @@ app.add_middleware(
 # Router Inclusions across all Domains
 # ---------------------------------------------------------------------------
 
-# Domain 1: Citizen SOS, Pre-Registration, and Autofill
+# Domain 1: Citizen SOS, Pre-Registration, Autofill, and IVR Telephony
 app.include_router(sos_router)
 app.include_router(citizen_router)
+app.include_router(citizen_ivr_router)
 app.include_router(registration_router)
 app.include_router(sos_autofill_router)
 

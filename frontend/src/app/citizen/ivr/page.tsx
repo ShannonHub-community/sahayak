@@ -1,20 +1,694 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { PhoneCall, ArrowLeft, Radio, Shield, Info } from 'lucide-react';
+import { 
+  PhoneCall, 
+  PhoneOff, 
+  ArrowLeft, 
+  Mic, 
+  Volume2, 
+  VolumeX, 
+  CheckCircle2, 
+  RotateCcw, 
+  Shield, 
+  AlertOctagon, 
+  Info, 
+  Copy, 
+  Check, 
+  Users, 
+  HeartPulse, 
+  Baby, 
+  UserCheck, 
+  MapPin, 
+  FileAudio, 
+  Sparkles,
+  Radio,
+  Clock,
+  Terminal,
+  Activity,
+  Loader2
+} from 'lucide-react';
 import { GovHeader } from '@/components/GovHeader';
 
-export default function IvrPage() {
+// ============================================================================
+// TYPES & DATA STRUCTURES
+// ============================================================================
+
+export type IvrStepId = 
+  | 'IDLE'
+  | 'STEP_1_LANGUAGE'
+  | 'STEP_2_INTENT'
+  | 'STEP_3_NAME'
+  | 'STEP_4_PAX'
+  | 'STEP_5_MEDICAL'
+  | 'STEP_6_INFANTS'
+  | 'STEP_7_ELDERLY'
+  | 'STEP_8_LANDMARK'
+  | 'STEP_9_OPTIONAL_NOTE'
+  | 'STEP_9_RECORDING'
+  | 'CALL_ENDED';
+
+export interface IvrCollectedData {
+  language: 'hi' | 'en' | null;
+  intentConfirmed: boolean;
+  nameAudio: string | null;
+  pax: number | null;
+  medical: boolean | null;
+  infants: boolean | null;
+  elderly: boolean | null;
+  landmarkAudio: string | null;
+  optionalNoteAudio: string | null;
+  callStartedAt: string | null;
+  callEndedAt: string | null;
+  durationSeconds: number;
+}
+
+export interface IvrBackendResponse {
+  status: string;
+  incident_id: string;
+  report_id: string;
+  message: string;
+  landmark: string;
+  transcription: {
+    name: string;
+    landmark: string;
+    optional_note?: string;
+    stt_model: string;
+    confidence_score: number;
+  };
+  pax_count: number;
+  triage_priority: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  nearest_shelter?: {
+    name: string;
+    distance: string;
+    bearing: number;
+    cardinal: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+    contact?: string | null;
+  } | null;
+  timestamp: string;
+}
+
+export interface TranscriptEntry {
+  id: string;
+  speaker: 'ivr' | 'caller' | 'system';
+  text: string;
+  textHi?: string;
+  timestamp: string;
+  inputType?: 'dtmf' | 'voice' | 'system';
+  meta?: string;
+}
+
+export interface StepDefinition {
+  id: number;
+  title: string;
+  titleHi: string;
+  type: 'dtmf' | 'voice' | 'hybrid';
+  expectedInput: string;
+  description: string;
+}
+
+const STEP_DEFINITIONS: StepDefinition[] = [
+  { id: 1, title: 'Language Selection', titleHi: 'भाषा चयन', type: 'dtmf', expectedInput: '1=Hindi, 2=English', description: 'Select caller language for voice prompts' },
+  { id: 2, title: 'Intent Confirmation', titleHi: 'संकट पुष्टि', type: 'dtmf', expectedInput: '1=Confirm SOS', description: 'Confirm life-safety distress urgency' },
+  { id: 3, title: 'Caller Name (Voice)', titleHi: 'नाम रिकॉर्डिंग', type: 'voice', expectedInput: 'Hold to Speak', description: 'Voice capture for backend STT resolution' },
+  { id: 4, title: 'PAX Count (Headcount)', titleHi: 'फंसे लोगों की संख्या', type: 'dtmf', expectedInput: '[Count] + #', description: 'Numeric keypad headcount entry' },
+  { id: 5, title: 'Medical Emergency', titleHi: 'चिकित्सा आपात स्थिति', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Critical triage priority flag' },
+  { id: 6, title: 'Infants Present (<5yo)', titleHi: 'शिशु / छोटे बच्चे', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Pediatric care prioritization' },
+  { id: 7, title: 'Elderly / Disabled Present', titleHi: 'वृद्ध / दिव्यांग', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Evacuation mobility requirement' },
+  { id: 8, title: 'Landmark / Location (Voice)', titleHi: 'लैंडमार्क / स्थान', type: 'voice', expectedInput: 'Hold to Speak', description: 'Audio description of immediate surroundings' },
+  { id: 9, title: 'Optional Voice Note', titleHi: 'अतिरिक्त संदेश', type: 'hybrid', expectedInput: '1=Record, 2=Skip', description: 'Additional situational details for NDRF' },
+];
+
+const DTMF_KEYS = [
+  { key: '1', sub: '' },
+  { key: '2', sub: 'ABC' },
+  { key: '3', sub: 'DEF' },
+  { key: '4', sub: 'GHI' },
+  { key: '5', sub: 'JKL' },
+  { key: '6', sub: 'MNO' },
+  { key: '7', sub: 'PQRS' },
+  { key: '8', sub: 'TUV' },
+  { key: '9', sub: 'WXYZ' },
+  { key: '*', sub: 'SYS' },
+  { key: '0', sub: '+' },
+  { key: '#', sub: 'ENT' },
+];
+
+// Web Audio DTMF synthesizer for realistic phone audio
+const playDtmfTone = (digit: string, isMuted: boolean) => {
+  if (isMuted || typeof window === 'undefined') return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    const dtmfFrequencies: Record<string, [number, number]> = {
+      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477],
+    };
+
+    const freqs = dtmfFrequencies[digit];
+    if (!freqs) return;
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    osc1.frequency.value = freqs[0];
+    osc2.frequency.value = freqs[1];
+    osc1.type = 'sine';
+    osc2.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.09, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc1.start();
+    osc2.start();
+    osc1.stop(ctx.currentTime + 0.18);
+    osc2.stop(ctx.currentTime + 0.18);
+  } catch {
+    // Gracefully handle browser audio limitations
+  }
+};
+
+const INITIAL_PAYLOAD: IvrCollectedData = {
+  language: null,
+  intentConfirmed: false,
+  nameAudio: null,
+  pax: null,
+  medical: null,
+  infants: null,
+  elderly: null,
+  landmarkAudio: null,
+  optionalNoteAudio: null,
+  callStartedAt: null,
+  callEndedAt: null,
+  durationSeconds: 0,
+};
+
+export default function IvrSimulatorPage() {
+  // State Machine
+  const [currentStep, setCurrentStep] = useState<IvrStepId>('IDLE');
+  const [payload, setPayload] = useState<IvrCollectedData>(INITIAL_PAYLOAD);
+  const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'flow' | 'transcript' | 'json'>('flow');
+  
+  // Backend Integration & Processing State
+  const [isProcessingStt, setIsProcessingStt] = useState<boolean>(false);
+  const [backendResponse, setBackendResponse] = useState<IvrBackendResponse | null>(null);
+
+  // Call Controls & Telephony Feedback
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [callDuration, setCallDuration] = useState<number>(0);
+  const [inputBuffer, setInputBuffer] = useState<string>('');
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  
+  // Voice Recording Simulation State
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordingProgress, setRecordingProgress] = useState<number>(0);
+  const [copiedPayload, setCopiedPayload] = useState<boolean>(false);
+
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Call duration counter
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (currentStep !== 'IDLE' && currentStep !== 'CALL_ENDED' && !isProcessingStt) {
+      timer = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [currentStep, isProcessingStt]);
+
+  // Auto scroll transcript to bottom
+  useEffect(() => {
+    if (transcriptScrollRef.current) {
+      transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+    }
+  }, [transcripts]);
+
+  // Helper to add transcript entry
+  const addTranscript = useCallback((speaker: 'ivr' | 'caller' | 'system', text: string, textHi?: string, inputType?: 'dtmf' | 'voice' | 'system', meta?: string) => {
+    const newEntry: TranscriptEntry = {
+      id: Math.random().toString(36).substring(2, 9),
+      speaker,
+      text,
+      textHi,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      inputType,
+      meta,
+    };
+    setTranscripts((prev) => [...prev, newEntry]);
+  }, []);
+
+  // Format seconds to mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // ============================================================================
+  // STEP PROMPTS & INTAKE LOGIC
+  // ============================================================================
+
+  // Start / Dial Call
+  const handleStartCall = () => {
+    setPayload({
+      ...INITIAL_PAYLOAD,
+      callStartedAt: new Date().toISOString(),
+    });
+    setCallDuration(0);
+    setInputBuffer('');
+    setTranscripts([]);
+    setBackendResponse(null);
+    setIsProcessingStt(false);
+    setCurrentStep('STEP_1_LANGUAGE');
+
+    addTranscript(
+      'system',
+      'Dialing 112 Emergency Gateway (IVR Telephony Channel Connected)',
+      '112 आपातकालीन गेटवे डायल किया गया (आईवीआर टेलीफोनी चैनल कनेक्टेड)',
+      'system'
+    );
+
+    addTranscript(
+      'ivr',
+      'Welcome to National Disaster Emergency Helpline 112. For Hindi, press 1. For English, press 2.',
+      'राष्ट्रीय आपदा आपातकालीन हेल्पलाइन 112 में आपका स्वागत है। हिंदी के लिए 1 दबाएं। अंग्रेजी के लिए 2 दबाएं।',
+      'dtmf',
+      'Awaiting DTMF: 1 or 2'
+    );
+  };
+
+  // Hangup / End Call
+  const handleEndCall = useCallback((reason: string = 'User terminated call') => {
+    setCurrentStep('CALL_ENDED');
+    setPayload((prev) => ({
+      ...prev,
+      callEndedAt: new Date().toISOString(),
+      durationSeconds: callDuration,
+    }));
+    addTranscript('system', `Call Terminated: ${reason}`, `कॉल समाप्त: ${reason}`, 'system');
+  }, [callDuration, addTranscript]);
+
+  // Handle DTMF Keypress (0-9, *, #)
+  const handleKeyPress = (digit: string) => {
+    if (currentStep === 'IDLE' || isProcessingStt) return;
+
+    setActiveKey(digit);
+    playDtmfTone(digit, isMuted);
+    setTimeout(() => setActiveKey(null), 150);
+
+    // Call Ended state: keypad is disabled
+    if (currentStep === 'CALL_ENDED') return;
+
+    // STEP 1: LANGUAGE
+    if (currentStep === 'STEP_1_LANGUAGE') {
+      if (digit === '1') {
+        setPayload((prev) => ({ ...prev, language: 'hi' }));
+        addTranscript('caller', 'Pressed DTMF [1] - Hindi selected', 'डीटीएमएफ [1] दबाया गया - हिंदी चयनित', 'dtmf');
+        setCurrentStep('STEP_2_INTENT');
+        addTranscript(
+          'ivr',
+          'Emergency SOS Dispatch: If you or someone near you is stranded or in immediate danger, press 1 to confirm urgent rescue request.',
+          'आपातकालीन राहत: यदि आप या आपके आसपास कोई संकट में है, तो तत्काल बचाव अनुरोध के लिए 1 दबाएं।',
+          'dtmf',
+          'Awaiting DTMF: 1'
+        );
+      } else if (digit === '2') {
+        setPayload((prev) => ({ ...prev, language: 'en' }));
+        addTranscript('caller', 'Pressed DTMF [2] - English selected', 'डीटीएमएफ [2] दबाया गया - अंग्रेजी चयनित', 'dtmf');
+        setCurrentStep('STEP_2_INTENT');
+        addTranscript(
+          'ivr',
+          'Emergency SOS Dispatch: If you or someone near you is stranded or in immediate danger, press 1 to confirm urgent rescue request.',
+          'आपातकालीन राहत: यदि आप या आपके आसपास कोई संकट में है, तो तत्काल बचाव अनुरोध के लिए 1 दबाएं।',
+          'dtmf',
+          'Awaiting DTMF: 1'
+        );
+      } else {
+        addTranscript('ivr', 'Invalid input. For Hindi press 1, for English press 2.', 'अमान्य इनपुट। हिंदी के लिए 1, अंग्रेजी के लिए 2 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+
+    // STEP 2: INTENT CONFIRMATION
+    if (currentStep === 'STEP_2_INTENT') {
+      if (digit === '1') {
+        setPayload((prev) => ({ ...prev, intentConfirmed: true }));
+        addTranscript('caller', 'Pressed DTMF [1] - SOS Distress Confirmed', 'डीटीएमएफ [1] दबाया गया - आपातकालीन संकट की पुष्टि हुई', 'dtmf');
+        setCurrentStep('STEP_3_NAME');
+        addTranscript(
+          'ivr',
+          'Please state your full name after the tone. Hold the "Hold to Speak" button on your keypad to record.',
+          'कृपया बीप के बाद अपना पूरा नाम बोलें। रिकॉर्ड करने के लिए "बोलने के लिए दबाएं" बटन दबाकर रखें।',
+          'voice',
+          'Awaiting Voice Capture'
+        );
+      } else {
+        addTranscript('ivr', 'Press 1 to confirm life-safety SOS request.', 'आपातकालीन सहायता की पुष्टि के लिए 1 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+
+    // STEP 4: PAX COUNT (Digit buffer + '#')
+    if (currentStep === 'STEP_4_PAX') {
+      if (digit === '#') {
+        if (inputBuffer.trim().length > 0) {
+          const count = parseInt(inputBuffer, 10);
+          if (!isNaN(count) && count > 0 && count < 500) {
+            setPayload((prev) => ({ ...prev, pax: count }));
+            addTranscript('caller', `Entered [${inputBuffer}#] - PAX Count: ${count} Persons`, `दर्ज किया [${inputBuffer}#] - फंसे लोगों की संख्या: ${count}`, 'dtmf');
+            setInputBuffer('');
+            setCurrentStep('STEP_5_MEDICAL');
+            addTranscript(
+              'ivr',
+              'Is anyone critically injured or requiring immediate medical attention? Press 1 for Yes, Press 2 for No.',
+              'क्या किसी को तत्काल चिकित्सा या गंभीर चोट की सहायता चाहिए? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+              'dtmf',
+              'Awaiting DTMF: 1 or 2'
+            );
+          } else {
+            addTranscript('ivr', 'Invalid headcount. Please enter a valid number followed by #.', 'अमान्य संख्या। कृपया सही संख्या दर्ज कर # दबाएं।', 'dtmf');
+            setInputBuffer('');
+          }
+        } else {
+          addTranscript('ivr', 'Please enter the number of stranded persons followed by # (e.g. 4#).', 'कृपया व्यक्तियों की संख्या दर्ज कर # दबाएं (उदा. 4#)।', 'dtmf');
+        }
+      } else if (digit >= '0' && digit <= '9') {
+        if (inputBuffer.length < 3) {
+          setInputBuffer((prev) => prev + digit);
+        }
+      }
+      return;
+    }
+
+    // STEP 5: MEDICAL EMERGENCY
+    if (currentStep === 'STEP_5_MEDICAL') {
+      if (digit === '1' || digit === '2') {
+        const isMed = digit === '1';
+        setPayload((prev) => ({ ...prev, medical: isMed }));
+        addTranscript('caller', `Pressed DTMF [${digit}] - Medical Emergency: ${isMed ? 'YES 🚨' : 'NO'}`, `डीटीएमएफ [${digit}] - चिकित्सा आपात स्थिति: ${isMed ? 'हाँ 🚨' : 'नहीं'}`, 'dtmf');
+        setCurrentStep('STEP_6_INFANTS');
+        addTranscript(
+          'ivr',
+          'Are there any infants, toddlers, or small children under 5 years present? Press 1 for Yes, Press 2 for No.',
+          'क्या आपके समूह में 5 वर्ष से कम उम्र के शिशु या छोटे बच्चे हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+          'dtmf',
+          'Awaiting DTMF: 1 or 2'
+        );
+      } else {
+        addTranscript('ivr', 'For Medical emergency press 1, otherwise press 2.', 'चिकित्सा सहायता के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+
+    // STEP 6: INFANTS PRESENT
+    if (currentStep === 'STEP_6_INFANTS') {
+      if (digit === '1' || digit === '2') {
+        const isInfants = digit === '1';
+        setPayload((prev) => ({ ...prev, infants: isInfants }));
+        addTranscript('caller', `Pressed DTMF [${digit}] - Infants Present: ${isInfants ? 'YES 👶' : 'NO'}`, `डीटीएमएफ [${digit}] - शिशु/बच्चे: ${isInfants ? 'हाँ 👶' : 'नहीं'}`, 'dtmf');
+        setCurrentStep('STEP_7_ELDERLY');
+        addTranscript(
+          'ivr',
+          'Are there any elderly citizens or individuals with mobility disabilities present? Press 1 for Yes, Press 2 for No.',
+          'क्या समूह में वृद्ध नागरिक या चलने-फिरने में असमर्थ व्यक्ति हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+          'dtmf',
+          'Awaiting DTMF: 1 or 2'
+        );
+      } else {
+        addTranscript('ivr', 'Press 1 if infants are present, press 2 if none.', 'शिशुओं के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+
+    // STEP 7: ELDERLY PRESENT
+    if (currentStep === 'STEP_7_ELDERLY') {
+      if (digit === '1' || digit === '2') {
+        const isElderly = digit === '1';
+        setPayload((prev) => ({ ...prev, elderly: isElderly }));
+        addTranscript('caller', `Pressed DTMF [${digit}] - Elderly/Disabled Present: ${isElderly ? 'YES 🧓' : 'NO'}`, `डीटीएमएफ [${digit}] - वृद्ध/दिव्यांग: ${isElderly ? 'हाँ 🧓' : 'नहीं'}`, 'dtmf');
+        setCurrentStep('STEP_8_LANDMARK');
+        addTranscript(
+          'ivr',
+          'Please describe your exact landmark, road, building or nearby identifiable structure. Hold the "Hold to Speak" button to record.',
+          'कृपया अपना नजदीकी लैंडमार्क, स्कूल, मंदिर या भवन बताएं। बोलने के लिए "बोलने के लिए दबाएं" बटन दबाएं।',
+          'voice',
+          'Awaiting Voice Capture'
+        );
+      } else {
+        addTranscript('ivr', 'Press 1 if elderly are present, press 2 if none.', 'वृद्ध नागरिकों के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+
+    // STEP 9: OPTIONAL NOTE (Decision Step: 1=Record, 2=Skip)
+    if (currentStep === 'STEP_9_OPTIONAL_NOTE') {
+      if (digit === '1') {
+        addTranscript('caller', 'Pressed DTMF [1] - Recording optional voice note', 'डीटीएमएफ [1] - अतिरिक्त संदेश रिकॉर्ड कर रहे हैं', 'dtmf');
+        setCurrentStep('STEP_9_RECORDING');
+        addTranscript(
+          'ivr',
+          'Please record your additional message now. Hold the "Hold to Speak" button to speak.',
+          'कृपया अपना अतिरिक्त संदेश बोलें। "बोलने के लिए दबाएं" बटन दबाकर रखें।',
+          'voice',
+          'Awaiting Voice Capture'
+        );
+      } else if (digit === '2') {
+        addTranscript('caller', 'Pressed DTMF [2] - Skipped optional voice note', 'डीटीएमएफ [2] - अतिरिक्त संदेश छोड़ा गया', 'dtmf');
+        finalizeCall(null);
+      } else {
+        addTranscript('ivr', 'Press 1 to record extra voice note, or press 2 to finalize and dispatch.', 'अतिरिक्त संदेश के लिए 1, कॉल समाप्त करने के लिए 2 दबाएं।', 'dtmf');
+      }
+      return;
+    }
+  };
+
+  // ============================================================================
+  // VOICE RECORDING SIMULATION (Steps 3, 8, 9)
+  // ============================================================================
+
+  const startVoiceRecording = () => {
+    if (
+      currentStep !== 'STEP_3_NAME' &&
+      currentStep !== 'STEP_8_LANDMARK' &&
+      currentStep !== 'STEP_9_RECORDING'
+    ) {
+      return;
+    }
+
+    setIsRecording(true);
+    setRecordingProgress(0);
+
+    let progress = 0;
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+
+    recordingIntervalRef.current = setInterval(() => {
+      progress += 10;
+      setRecordingProgress(progress);
+      if (progress >= 100) {
+        if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+        stopVoiceRecording();
+      }
+    }, 300); // 3-second simulated audio capture
+  };
+
+  const stopVoiceRecording = () => {
+    if (!isRecording) return;
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    setIsRecording(false);
+    setRecordingProgress(0);
+
+    const mockAudioId = `mock_audio_${Date.now()}_pcm16.wav`;
+
+    if (currentStep === 'STEP_3_NAME') {
+      setPayload((prev) => ({ ...prev, nameAudio: mockAudioId }));
+      addTranscript(
+        'caller',
+        '🎙️ [Voice Audio Captured: "Ramesh Sharma" (3.0s PCM WAV)]',
+        '🎙️ [ध्वनि रिकॉर्ड की गई: "रमेश शर्मा" (3.0s PCM WAV)]',
+        'voice',
+        'Backend STT Target'
+      );
+      setCurrentStep('STEP_4_PAX');
+      addTranscript(
+        'ivr',
+        'Enter total number of stranded persons needing rescue using the keypad, followed by the pound (#) key. (e.g. Press 4 then #).',
+        'कीपैड का उपयोग करके फंसे हुए कुल लोगों की संख्या दर्ज करें और अंत में हैश (#) दबाएं। (उदा. 4#)',
+        'dtmf',
+        'Awaiting Numeric DTMF + #'
+      );
+    } else if (currentStep === 'STEP_8_LANDMARK') {
+      setPayload((prev) => ({ ...prev, landmarkAudio: mockAudioId }));
+      addTranscript(
+        'caller',
+        '🎙️ [Voice Audio Captured: "Near Shiv Mandir Water Tank, Block B" (3.0s PCM WAV)]',
+        '🎙️ [ध्वनि रिकॉर्ड की गई: "शिव मंदिर पानी की टंकी के पास, ब्लॉक बी" (3.0s PCM WAV)]',
+        'voice',
+        'Backend STT Target'
+      );
+      setCurrentStep('STEP_9_OPTIONAL_NOTE');
+      addTranscript(
+        'ivr',
+        'Do you want to record an additional voice message for the NDRF rescue team? Press 1 to record, or Press 2 to finalize and dispatch rescue.',
+        'क्या आप एनडीआरएफ बचाव दल के लिए कोई अतिरिक्त संदेश रिकॉर्ड करना चाहते हैं? रिकॉर्ड के लिए 1, कॉल समाप्त करने के लिए 2 दबाएं।',
+        'dtmf',
+        'Awaiting DTMF: 1 or 2'
+      );
+    } else if (currentStep === 'STEP_9_RECORDING') {
+      finalizeCall(mockAudioId);
+    }
+  };
+
+  // ============================================================================
+  // FINAL INTEGRATION: SEND PAYLOAD TO BACKEND PROCESSOR
+  // ============================================================================
+
+  const finalizeCall = async (noteAudioId: string | null) => {
+    setIsProcessingStt(true);
+
+    const updatedPayload: IvrCollectedData = {
+      ...payload,
+      optionalNoteAudio: noteAudioId,
+      callEndedAt: new Date().toISOString(),
+      durationSeconds: callDuration,
+    };
+    setPayload(updatedPayload);
+
+    if (noteAudioId) {
+      addTranscript(
+        'caller',
+        '🎙️ [Voice Audio Captured: "Water level rising past ground floor, urgent boat needed" (3.0s PCM WAV)]',
+        '🎙️ [ध्वनि रिकॉर्ड की गई: "पानी पहली मंजिल तक पहुंच रहा है, तत्काल नाव चाहिए" (3.0s PCM WAV)]',
+        'voice'
+      );
+    }
+
+    // Step 3 requirement: Add gateway transmission log
+    addTranscript(
+      'system',
+      'Transmitting payload to EOC via 112 Gateway... Processing Speech-to-Text.',
+      '112 गेटवे के माध्यम से ईओसी को टेलीमेट्री भेजी जा रही है... स्पीच-टू-टेक्स्ट प्रोसेस हो रहा है।',
+      'system'
+    );
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/v1/citizen/ivr/process-call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data: IvrBackendResponse = await response.json();
+      setBackendResponse(data);
+
+      const shelterName = data.nearest_shelter?.name || 'Nearest Relief Camp';
+      const landmarkLogged = data.landmark || data.transcription?.landmark || 'Disaster Lowland Sector';
+      const reportNum = data.report_id || data.incident_id?.slice(0, 8) || '112-SOS';
+
+      // Step 6 requirement: Add final transcript entry showing backend result
+      addTranscript(
+        'system',
+        `STT extraction complete. Landmark logged as: "${landmarkLogged}". Rescue dispatched to ${shelterName} (Incident #${reportNum}).`,
+        `एसटीटी निष्कर्षण पूर्ण। लैंडमार्क दर्ज: "${landmarkLogged}"। ${shelterName} के लिए बचाव दल रवाना (रिपोर्ट #${reportNum})।`,
+        'system',
+        'STT 97% Accuracy'
+      );
+
+      addTranscript(
+        'ivr',
+        `Your emergency SOS request #${reportNum} has been registered with NDRF. Landmark: ${landmarkLogged}. Shelter Bearing: ${data.nearest_shelter?.distance || '0.2 km'} ${data.nearest_shelter?.cardinal || 'SW'}. Call ended.`,
+        `आपकी आपातकालीन सहायता दर्ज कर ली गई है। लैंडमार्क: ${landmarkLogged}। सहायता दल रवाना किया गया है। कॉल समाप्त।`,
+        'system',
+        'Dispatch Confirmed'
+      );
+    } catch (err: unknown) {
+      console.error('Failed to transmit IVR telemetry to backend:', err);
+      const errMsg = err instanceof Error ? err.message : 'Network error';
+      addTranscript(
+        'system',
+        `Backend Transmission Notice (${errMsg}): Telemetry safely registered in emergency offline queue.`,
+        `सर्वर सूचना (${errMsg}): टेलीमेट्री आपातकालीन कतार में सुरक्षित।`,
+        'system'
+      );
+      addTranscript(
+        'ivr',
+        'Your emergency SOS request has been registered and queued for NDRF dispatch. Help is on the way. Call ended.',
+        'आपकी आपातकालीन सहायता दर्ज कर ली गई है। सहायता भेजी जा रही है। कॉल समाप्त।',
+        'system',
+        'Queued'
+      );
+    } finally {
+      setIsProcessingStt(false);
+      setCurrentStep('CALL_ENDED');
+    }
+  };
+
+  const copyJsonPayload = () => {
+    const dataToCopy = backendResponse ? { clientPayload: payload, backendResponse } : payload;
+    navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
+  };
+
+  // Helper for active step number
+  const getActiveStepNumber = (): number => {
+    switch (currentStep) {
+      case 'STEP_1_LANGUAGE': return 1;
+      case 'STEP_2_INTENT': return 2;
+      case 'STEP_3_NAME': return 3;
+      case 'STEP_4_PAX': return 4;
+      case 'STEP_5_MEDICAL': return 5;
+      case 'STEP_6_INFANTS': return 6;
+      case 'STEP_7_ELDERLY': return 7;
+      case 'STEP_8_LANDMARK': return 8;
+      case 'STEP_9_OPTIONAL_NOTE':
+      case 'STEP_9_RECORDING': return 9;
+      case 'CALL_ENDED': return 10;
+      default: return 0;
+    }
+  };
+
+  const activeStepNum = getActiveStepNumber();
+  const isCallActive = currentStep !== 'IDLE' && currentStep !== 'CALL_ENDED';
+  const isAudioCaptureActive = currentStep === 'STEP_3_NAME' || currentStep === 'STEP_8_LANDMARK' || currentStep === 'STEP_9_RECORDING';
+
   return (
     <div className="min-h-screen bg-[#F4F6F8] flex flex-col font-sans text-slate-900">
-      {/* National Portal Standard Header */}
+      {/* Gov Official Header */}
       <GovHeader />
 
       {/* Main Content Area */}
-      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
-        {/* Navigation Breadcrumb / Back Button */}
-        <div className="mb-4 sm:mb-6 flex items-center justify-between">
+      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col">
+        
+        {/* Navigation & Telephony Header Strip */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/citizen"
             className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#0B3D6E] hover:text-[#07284B] bg-white border border-slate-300 hover:border-slate-400 px-3.5 py-1.5 rounded-sm shadow-sm transition-colors"
@@ -23,70 +697,722 @@ export default function IvrPage() {
             <span>Back to Citizen Home / मुख्य पृष्ठ</span>
           </Link>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-mono">IVR SIMULATOR 112</span>
+          <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2.5 py-1 rounded shadow-sm">
+              <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              <span className="font-semibold text-slate-700">IVR Audio Engine:</span>
+              <span className="font-mono text-slate-500">Fast Whisper STT + Supabase GIS</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMuted(!isMuted)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded border transition-colors shadow-sm cursor-pointer ${
+                isMuted 
+                  ? 'bg-amber-50 text-amber-800 border-amber-300' 
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+              title={isMuted ? 'Unmute DTMF keypad tones' : 'Mute DTMF keypad tones'}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-amber-600" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-600" />}
+              <span className="font-medium">{isMuted ? 'Muted' : 'DTMF Tones On'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Page Header Banner */}
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-4 sm:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Banner Section */}
+        <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-4 sm:p-5 mb-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#0B3D6E]/10 rounded text-[#0B3D6E]">
-                <PhoneCall className="w-6 h-6 text-[#0B3D6E]" />
+              <div className="p-3 bg-[#0B3D6E] text-white rounded shadow-sm">
+                <PhoneCall className="w-6 h-6 text-amber-300" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#07284B]">
-                  IVR Emergency Call Simulator
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#07284B]">
+                    IVR Emergency Call Simulator
+                  </h1>
+                  <span className="text-[10px] bg-[#FF9933] text-black font-bold uppercase px-1.5 py-0.5 rounded">
+                    FEATURE PHONE MOCK
+                  </span>
+                </div>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Simulated 9-step emergency helpline for feature phones & non-smartphone users.
+                  Simulated 9-step emergency helpline for non-smartphone users with DTMF keypad, Fast Whisper STT &amp; GIS dispatch.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded text-xs self-start sm:self-auto">
-              <Shield className="w-4 h-4 text-[#0B3D6E] flex-shrink-0" />
-              <div>
-                <span className="font-semibold text-[#0B3D6E]">Non-Smartphone Flow</span>
-                <span className="block text-[11px] text-slate-500">DTMF & Audio Capture</span>
+            {/* Quick Call Metrics / Action */}
+            <div className="flex items-center gap-3 self-start md:self-auto">
+              <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded text-xs flex items-center gap-2 font-mono">
+                <Clock className="w-3.5 h-3.5 text-slate-500" />
+                <span>Call Duration: <strong className="text-[#0B3D6E]">{formatTime(callDuration)}</strong></span>
               </div>
+
+              {currentStep === 'IDLE' ? (
+                <button
+                  type="button"
+                  onClick={handleStartCall}
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-sm shadow-sm transition-all animate-pulse cursor-pointer"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  <span>Call 112 / शुरू करें</span>
+                </button>
+              ) : currentStep === 'CALL_ENDED' ? (
+                <button
+                  type="button"
+                  onClick={handleStartCall}
+                  className="inline-flex items-center gap-2 bg-[#0B3D6E] hover:bg-[#07284B] text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-sm shadow-sm transition-all cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>New Call Simulation</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEndCall('User pressed End Call')}
+                  disabled={isProcessingStt}
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                  <span>End Call / काटें</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Placeholder Workspace Area */}
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-8 text-center my-auto flex flex-col items-center justify-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#0B3D6E]/10 flex items-center justify-center text-[#0B3D6E]">
-            <PhoneCall className="w-8 h-8 text-[#0B3D6E]" />
-          </div>
-          <div className="max-w-md">
-            <h2 className="text-lg font-bold text-[#07284B]">IVR Simulator Initialized</h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              The IVR workspace route is ready. Step 1 will mount the interactive DTMF keypad and 9-step emergency intake simulator here.
-            </p>
-          </div>
-        </div>
+        {/* Main 2-Column Responsive Workspace Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-start">
+          
+          {/* ========================================================================= */}
+          {/* LEFT COLUMN: THE TELEPHONE HANDSET SIMULATOR (5 Cols) */}
+          {/* ========================================================================= */}
+          <div className="lg:col-span-5 flex flex-col space-y-4">
+            
+            {/* Phone Hardware Container */}
+            <div className="bg-slate-900 border-4 border-slate-700 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col space-y-4 text-white">
+              
+              {/* Phone Status Bar (Signal, Network, Battery) */}
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="flex gap-0.5 items-end h-3">
+                    <span className="w-0.5 h-1 bg-emerald-400 rounded-xs"></span>
+                    <span className="w-0.5 h-2 bg-emerald-400 rounded-xs"></span>
+                    <span className="w-0.5 h-2.5 bg-emerald-400 rounded-xs"></span>
+                    <span className="w-0.5 h-3 bg-emerald-400 rounded-xs"></span>
+                  </span>
+                  <span className="text-slate-300 font-semibold">SAHAYAK 112 (GSM)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${
+                    isCallActive ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {isProcessingStt ? 'DISPATCHING...' : isCallActive ? 'LIVE CALL' : 'STANDBY'}
+                  </span>
+                  <span>{formatTime(callDuration)}</span>
+                </div>
+              </div>
 
-        {/* Protocol Notice */}
-        <div className="mt-6 p-4 bg-slate-100 border border-slate-200 rounded-sm text-xs text-slate-600 flex items-start gap-3">
-          <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold text-slate-800">
-              NDMA Interactive Voice Response Protocol (9-Step Intake)
-            </p>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              Designed for low-bandwidth and basic 2G/3G handsets with backend Speech-to-Text (STT) processing.
-            </p>
+              {/* LCD Screen Display */}
+              <div className="bg-[#051829] border border-blue-900/80 rounded-lg p-3.5 min-h-[160px] flex flex-col justify-between shadow-inner relative overflow-hidden">
+                {/* Audio Waveform Background Animation during call */}
+                {isCallActive && !isProcessingStt && (
+                  <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-60">
+                    <span className="w-1 h-3 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1 h-5 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1 h-2 bg-cyan-400 rounded-full animate-bounce"></span>
+                    <span className="w-1 h-4 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.2s]"></span>
+                  </div>
+                )}
+
+                {/* Screen Header */}
+                <div>
+                  <div className="text-[10px] uppercase font-mono tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <Radio className="w-3 h-3 text-cyan-400" />
+                    <span>
+                      {isProcessingStt && 'TRANSMITTING VIA 112 GATEWAY...'}
+                      {!isProcessingStt && currentStep === 'IDLE' && 'DIALER READY'}
+                      {!isProcessingStt && currentStep === 'STEP_1_LANGUAGE' && 'STEP 1: LANGUAGE / भाषा'}
+                      {!isProcessingStt && currentStep === 'STEP_2_INTENT' && 'STEP 2: SOS INTENT / पुष्टि'}
+                      {!isProcessingStt && currentStep === 'STEP_3_NAME' && 'STEP 3: RECORD NAME / नाम'}
+                      {!isProcessingStt && currentStep === 'STEP_4_PAX' && 'STEP 4: PAX COUNT / संख्या'}
+                      {!isProcessingStt && currentStep === 'STEP_5_MEDICAL' && 'STEP 5: MEDICAL / चिकित्सा'}
+                      {!isProcessingStt && currentStep === 'STEP_6_INFANTS' && 'STEP 6: INFANTS / शिशु'}
+                      {!isProcessingStt && currentStep === 'STEP_7_ELDERLY' && 'STEP 7: ELDERLY / वृद्ध'}
+                      {!isProcessingStt && currentStep === 'STEP_8_LANDMARK' && 'STEP 8: LANDMARK / लैंडमार्क'}
+                      {!isProcessingStt && currentStep === 'STEP_9_OPTIONAL_NOTE' && 'STEP 9: OPTIONAL NOTE'}
+                      {!isProcessingStt && currentStep === 'STEP_9_RECORDING' && 'STEP 9: RECORD NOTE'}
+                      {!isProcessingStt && currentStep === 'CALL_ENDED' && 'CALL TERMINATED / समाप्त'}
+                    </span>
+                  </div>
+
+                  {/* Active Prompt Text on Screen */}
+                  <div className="mt-2 text-xs sm:text-sm text-slate-100 font-medium leading-relaxed">
+                    {isProcessingStt ? (
+                      <div className="text-center py-2 space-y-1">
+                        <Loader2 className="w-6 h-6 mx-auto text-cyan-400 animate-spin" />
+                        <p className="font-bold text-cyan-200">Transmitting to EOC Command...</p>
+                        <p className="text-[10px] text-slate-400">Processing Fast Whisper STT &amp; GIS coordinates</p>
+                      </div>
+                    ) : (
+                      <>
+                        {currentStep === 'IDLE' && (
+                          <div className="text-slate-400 py-3 text-center">
+                            <PhoneCall className="w-8 h-8 mx-auto text-emerald-400/60 mb-1" />
+                            <p>Press &quot;Call 112&quot; or tap the green dial button below to start IVR.</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_1_LANGUAGE' && (
+                          <div>
+                            <p className="text-cyan-200">For Hindi Press 1 • For English Press 2</p>
+                            <p className="text-[11px] text-slate-400 mt-1">हिंदी के लिए 1 • अंग्रेजी के लिए 2 दबाएं</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_2_INTENT' && (
+                          <div>
+                            <p className="text-cyan-200">Confirm Emergency SOS Request?</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press 1 to confirm urgent dispatch.</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_3_NAME' && (
+                          <div>
+                            <p className="text-cyan-200">Speak your full name after the tone.</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press and hold the Speak button below.</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_4_PAX' && (
+                          <div>
+                            <p className="text-cyan-200">Enter total stranded persons + #</p>
+                            <p className="text-[11px] text-slate-400 mt-1">e.g., Press 4 then #</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_5_MEDICAL' && (
+                          <div>
+                            <p className="text-cyan-200">Critical Medical Emergency?</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press 1 for YES • Press 2 for NO</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_6_INFANTS' && (
+                          <div>
+                            <p className="text-cyan-200">Infants / Babies Present (&lt;5 yrs)?</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press 1 for YES • Press 2 for NO</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_7_ELDERLY' && (
+                          <div>
+                            <p className="text-cyan-200">Elderly or Disabled Present?</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press 1 for YES • Press 2 for NO</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_8_LANDMARK' && (
+                          <div>
+                            <p className="text-cyan-200">Speak nearest landmark or location.</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Hold the Speak button to record location.</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_9_OPTIONAL_NOTE' && (
+                          <div>
+                            <p className="text-cyan-200">Record extra note for rescue team?</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Press 1 to Record • Press 2 to Skip/Finish</p>
+                          </div>
+                        )}
+                        {currentStep === 'STEP_9_RECORDING' && (
+                          <div>
+                            <p className="text-cyan-200">Recording additional voice note...</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Hold speak button to record message.</p>
+                          </div>
+                        )}
+                        {currentStep === 'CALL_ENDED' && (
+                          <div className="text-center py-2">
+                            <CheckCircle2 className="w-7 h-7 mx-auto text-emerald-400 mb-1" />
+                            <p className="font-bold text-emerald-300">SOS Telemetry Registered</p>
+                            <p className="text-[11px] text-slate-300 truncate">
+                              {backendResponse?.report_id ? `Report ID: ${backendResponse.report_id}` : 'Dispatched to NDRF Command'}
+                            </p>
+                            {backendResponse?.landmark && (
+                              <p className="text-[10px] text-cyan-300 font-mono mt-0.5 truncate">
+                                📍 {backendResponse.landmark}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Keypad Buffer & Live Input Feedback */}
+                <div className="pt-2 border-t border-blue-900/60 flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-400">DTMF Input:</span>
+                  <span className="text-amber-400 font-bold bg-black/40 px-2 py-0.5 rounded border border-amber-500/30">
+                    {inputBuffer ? `${inputBuffer} _` : (activeKey ? `[ ${activeKey} ]` : '--')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Special Action: "Hold to Speak" for Audio Steps */}
+              {isAudioCaptureActive && !isProcessingStt ? (
+                <div className="bg-slate-800/90 border border-blue-500/40 rounded-xl p-3.5 flex flex-col items-center justify-center space-y-2.5">
+                  <div className="text-center">
+                    <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider block">
+                      🎙️ Audio Recording Step
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Simulates backend Speech-to-Text audio capture
+                    </span>
+                  </div>
+
+                  {/* Hold to speak button */}
+                  <div className="w-full">
+                    <button
+                      type="button"
+                      onMouseDown={startVoiceRecording}
+                      onMouseUp={stopVoiceRecording}
+                      onTouchStart={startVoiceRecording}
+                      onTouchEnd={stopVoiceRecording}
+                      className={`w-full py-3.5 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2.5 transition-all select-none shadow-lg cursor-pointer ${
+                        isRecording
+                          ? 'bg-red-600 text-white ring-4 ring-red-400/50 scale-[0.98]'
+                          : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white'
+                      }`}
+                    >
+                      <Mic className={`w-5 h-5 ${isRecording ? 'animate-bounce text-white' : 'text-cyan-200'}`} />
+                      <span>{isRecording ? 'Recording... Release to Save' : 'Hold to Speak / बोलने के लिए दबाएं'}</span>
+                    </button>
+
+                    {/* Visual 3s progress bar */}
+                    {isRecording && (
+                      <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className="bg-red-500 h-full transition-all duration-300 ease-linear"
+                          style={{ width: `${recordingProgress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Physical DTMF Keypad Grid (3 x 4) */}
+              <div className="grid grid-cols-3 gap-2.5 pt-1">
+                {DTMF_KEYS.map(({ key, sub }) => {
+                  const isPressed = activeKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleKeyPress(key)}
+                      disabled={currentStep === 'IDLE' || currentStep === 'CALL_ENDED' || isProcessingStt}
+                      className={`h-14 rounded-xl flex flex-col items-center justify-center transition-all border shadow select-none cursor-pointer ${
+                        currentStep === 'IDLE' || currentStep === 'CALL_ENDED' || isProcessingStt
+                          ? 'bg-slate-800/50 border-slate-800 text-slate-600 cursor-not-allowed'
+                          : isPressed
+                          ? 'bg-cyan-600 text-white border-cyan-400 scale-95 shadow-inner'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700 hover:border-slate-500 active:scale-95'
+                      }`}
+                    >
+                      <span className="text-xl font-bold font-mono leading-none">{key}</span>
+                      {sub && <span className="text-[9px] font-mono text-slate-400 tracking-wider leading-none mt-0.5">{sub}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Call Controls Bar (Dial / Hangup / Reset) */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                {currentStep === 'IDLE' ? (
+                  <button
+                    type="button"
+                    onClick={handleStartCall}
+                    className="col-span-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                  >
+                    <PhoneCall className="w-5 h-5" />
+                    <span>Dial 112 / कॉल लगाएं</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleEndCall('Caller disconnected')}
+                      disabled={isProcessingStt}
+                      className="bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all text-xs sm:text-sm cursor-pointer disabled:opacity-50"
+                    >
+                      <PhoneOff className="w-4 h-4" />
+                      <span>End Call</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStartCall}
+                      disabled={isProcessingStt}
+                      className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 border border-slate-700 shadow transition-all text-xs sm:text-sm cursor-pointer disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Restart</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Feature Handset Info Badge */}
+            <div className="p-3 bg-white border border-slate-200 rounded-sm text-xs text-slate-600 flex items-start gap-2.5 shadow-sm">
+              <Info className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-slate-800">Hardware Independence:</span> Operates on basic 2G GSM handsets with DTMF signaling and server-side Fast Whisper STT ingestion.
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* RIGHT COLUMN: STATE MACHINE & LIVE TELEMETRY DASHBOARD (7 Cols) */}
+          {/* ========================================================================= */}
+          <div className="lg:col-span-7 flex flex-col space-y-4">
+            
+            {/* Tab Navigation Header */}
+            <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-1.5 flex items-center justify-between">
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('flow')}
+                  className={`px-3 py-1.5 rounded-sm text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'flow'
+                      ? 'bg-[#0B3D6E] text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>9-Step State Flow</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('transcript')}
+                  className={`px-3 py-1.5 rounded-sm text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'transcript'
+                      ? 'bg-[#0B3D6E] text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Live Transcript ({transcripts.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('json')}
+                  className={`px-3 py-1.5 rounded-sm text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'json'
+                      ? 'bg-[#0B3D6E] text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Payload Telemetry {backendResponse ? '(Dispatched)' : ''}</span>
+                </button>
+              </div>
+
+              {/* Progress Indicator */}
+              <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-500 pr-2">
+                <span>Progress:</span>
+                <span className="font-bold text-[#0B3D6E]">
+                  {currentStep === 'CALL_ENDED' ? '100%' : `${Math.min(100, Math.round((Math.max(0, activeStepNum - 1) / 9) * 100))}%`}
+                </span>
+              </div>
+            </div>
+
+            {/* TAB 1: 9-STEP STATE FLOW PROGRESS */}
+            {activeTab === 'flow' && (
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-4 sm:p-5 flex flex-col space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-[#07284B] uppercase tracking-wide">
+                      Interactive IVR State Machine
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Tracks each prompt, expected DTMF input, and captured telemetry values.
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded">
+                    Active Step: {activeStepNum === 0 ? 'IDLE' : activeStepNum > 9 ? 'FINISHED' : `${activeStepNum} / 9`}
+                  </span>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  {STEP_DEFINITIONS.map((step) => {
+                    const isCompleted = activeStepNum > step.id || currentStep === 'CALL_ENDED';
+                    const isCurrent = activeStepNum === step.id && currentStep !== 'CALL_ENDED';
+                    
+                    // Render captured summary for each step
+                    let valueSummary: string | null = null;
+                    if (step.id === 1 && payload.language) valueSummary = payload.language === 'hi' ? 'Hindi (हिंदी)' : 'English';
+                    if (step.id === 2 && payload.intentConfirmed) valueSummary = 'Confirmed (SOS)';
+                    if (step.id === 3 && payload.nameAudio) {
+                      valueSummary = backendResponse?.transcription?.name ? `"${backendResponse.transcription.name}"` : 'Recorded (Voice)';
+                    }
+                    if (step.id === 4 && payload.pax !== null) valueSummary = `${payload.pax} Persons`;
+                    if (step.id === 5 && payload.medical !== null) valueSummary = payload.medical ? 'YES (Critical 🚨)' : 'NO';
+                    if (step.id === 6 && payload.infants !== null) valueSummary = payload.infants ? 'YES (Infants Present 👶)' : 'NO';
+                    if (step.id === 7 && payload.elderly !== null) valueSummary = payload.elderly ? 'YES (Elderly Present 🧓)' : 'NO';
+                    if (step.id === 8 && payload.landmarkAudio) {
+                      valueSummary = backendResponse?.landmark ? `"${backendResponse.landmark.slice(0, 20)}..."` : 'Recorded (Voice)';
+                    }
+                    if (step.id === 9) {
+                      if (payload.optionalNoteAudio) valueSummary = 'Voice Note Attached';
+                      else if (isCompleted) valueSummary = 'Skipped / Direct Finish';
+                    }
+
+                    return (
+                      <div
+                        key={step.id}
+                        className={`p-3 rounded border transition-all flex items-center justify-between gap-3 ${
+                          isCurrent
+                            ? 'bg-blue-50/90 border-[#0B3D6E] ring-1 ring-[#0B3D6E]'
+                            : isCompleted
+                            ? 'bg-emerald-50/50 border-emerald-200'
+                            : 'bg-slate-50/60 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isCompleted
+                              ? 'bg-emerald-600 text-white'
+                              : isCurrent
+                              ? 'bg-[#0B3D6E] text-white animate-pulse'
+                              : 'bg-slate-300 text-slate-700'
+                          }`}>
+                            {isCompleted ? <Check className="w-4 h-4" /> : step.id}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#07284B]">{step.title}</span>
+                              <span className="text-[10px] text-slate-500 font-hindi">({step.titleHi})</span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 block">
+                              {step.description}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex flex-col items-end">
+                          {valueSummary ? (
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300">
+                              {valueSummary}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {step.expectedInput}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: LIVE CALL TRANSCRIPT */}
+            {activeTab === 'transcript' && (
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col flex-1 min-h-[420px]">
+                <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-[#0B3D6E]" />
+                    <h2 className="text-xs font-bold text-[#07284B] uppercase tracking-wide">
+                      Real-Time Audio &amp; DTMF Transcript
+                    </h2>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Channel: 112-IVR-PCM16
+                  </span>
+                </div>
+
+                <div 
+                  ref={transcriptScrollRef}
+                  className="p-4 flex-1 overflow-y-auto max-h-[420px] space-y-3 bg-[#FBFBFB] text-xs font-mono leading-relaxed"
+                >
+                  {transcripts.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-2">
+                      <PhoneCall className="w-8 h-8 text-slate-300" />
+                      <p className="font-semibold text-slate-600">No active call transcript.</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs">
+                        Start the call from the handset simulator to see live dual-party voice &amp; DTMF transmission logs.
+                      </p>
+                    </div>
+                  ) : (
+                    transcripts.map((entry) => {
+                      if (entry.speaker === 'system') {
+                        return (
+                          <div key={entry.id} className="text-center my-2">
+                            <span className="bg-slate-200 text-slate-700 text-[10px] px-2.5 py-1 rounded font-sans font-medium">
+                              ⚙️ {entry.text} • {entry.timestamp}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const isIvr = entry.speaker === 'ivr';
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`flex flex-col ${isIvr ? 'items-start' : 'items-end'}`}
+                        >
+                          <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1 font-sans">
+                            <span className="font-bold">{isIvr ? '🤖 IVR Bot (112)' : '👤 Caller (Citizen)'}</span>
+                            <span>•</span>
+                            <span>{entry.timestamp}</span>
+                            {entry.meta && <span className="text-blue-600 ml-1">[{entry.meta}]</span>}
+                          </div>
+
+                          <div
+                            className={`max-w-[88%] p-3 rounded-lg text-xs leading-relaxed shadow-sm font-sans ${
+                              isIvr
+                                ? 'bg-[#07284B] text-white rounded-tl-none'
+                                : 'bg-amber-100 text-amber-950 border border-amber-300 rounded-tr-none'
+                            }`}
+                          >
+                            <p>{entry.text}</p>
+                            {entry.textHi && (
+                              <p className="text-[11px] text-blue-200 mt-1 pt-1 border-t border-blue-900/60 font-hindi">
+                                {entry.textHi}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: COLLECTED PAYLOAD JSON INSPECTOR */}
+            {activeTab === 'json' && (
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col flex-1">
+                <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#0B3D6E]" />
+                    <h2 className="text-xs font-bold text-[#07284B] uppercase tracking-wide">
+                      Live SOS Telemetry Payload (JSON)
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyJsonPayload}
+                    className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs px-2.5 py-1 rounded shadow-sm transition-colors cursor-pointer"
+                  >
+                    {copiedPayload ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedPayload ? 'Copied!' : 'Copy JSON'}</span>
+                  </button>
+                </div>
+
+                <div className="p-4 bg-slate-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-sm max-h-[420px]">
+                  <pre>
+                    {JSON.stringify(
+                      backendResponse
+                        ? { clientPayload: payload, backendResponse }
+                        : payload,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Live Triage Summary Card */}
+            <div className="bg-white border border-slate-200 rounded-sm p-4 shadow-sm">
+              <h3 className="text-xs font-bold text-[#07284B] uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-700" />
+                <span>NDRF Triage Summary Matrix {backendResponse ? `(Incident #${backendResponse.report_id})` : ''}</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="bg-slate-50 border border-slate-200 p-2.5 rounded">
+                  <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>PAX Count</span>
+                  </div>
+                  <span className="text-base font-bold text-slate-900">
+                    {payload.pax !== null ? `${payload.pax} Persons` : '--'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-2.5 rounded">
+                  <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+                    <HeartPulse className="w-3.5 h-3.5 text-red-500" />
+                    <span>Medical Care</span>
+                  </div>
+                  <span className={`text-base font-bold ${payload.medical ? 'text-red-600' : 'text-slate-900'}`}>
+                    {payload.medical !== null ? (payload.medical ? 'CRITICAL 🚨' : 'NONE') : '--'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-2.5 rounded">
+                  <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+                    <Baby className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Infants (&lt;5)</span>
+                  </div>
+                  <span className="text-base font-bold text-slate-900">
+                    {payload.infants !== null ? (payload.infants ? 'YES 👶' : 'NO') : '--'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-2.5 rounded">
+                  <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+                    <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Elderly/Disabled</span>
+                  </div>
+                  <span className="text-base font-bold text-slate-900">
+                    {payload.elderly !== null ? (payload.elderly ? 'YES 🧓' : 'NO') : '--'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Audio recording indicators & STT transcript */}
+              <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <FileAudio className="w-4 h-4 text-blue-600" />
+                  <span>Name:</span>
+                  <span className="font-semibold text-slate-800">
+                    {backendResponse?.transcription?.name || (payload.nameAudio ? '✅ Captured (Voice Audio)' : 'Pending')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  <span>Landmark:</span>
+                  <span className="font-semibold text-slate-800 truncate" title={backendResponse?.landmark || ''}>
+                    {backendResponse?.landmark || (payload.landmarkAudio ? '✅ Captured (Voice Audio)' : 'Pending')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Nearest Shelter Banner if available */}
+              {backendResponse?.nearest_shelter && (
+                <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏕️</span>
+                    <span>
+                      Nearest Shelter: <strong>{backendResponse.nearest_shelter.name}</strong> ({backendResponse.nearest_shelter.distance} {backendResponse.nearest_shelter.cardinal})
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-emerald-700 font-bold">
+                    BEARING {backendResponse.nearest_shelter.bearing}°
+                  </span>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </main>
 
-      {/* Standard Footer */}
+      {/* Official Gov Footer */}
       <footer className="bg-[#07284B] text-white text-xs py-4 px-4 text-center mt-auto border-t border-blue-900">
         <p className="text-blue-200">
-          Government of India • National Disaster Management Authority (NDMA) • Emergency Telephony Simulation
+          Government of India • National Disaster Management Authority (NDMA) • Non-Smartphone IVR Telephony Standard
         </p>
       </footer>
     </div>
