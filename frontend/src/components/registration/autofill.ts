@@ -1,4 +1,4 @@
-import type { CitizenProfile } from '../types/sos';
+import type { CitizenProfile } from '@/types/sos';
 import { getBrowserIdentifier } from './browserIdentifier';
 
 const STORAGE_KEY_CACHED_PROFILE = 'sahayak_cached_citizen_profile';

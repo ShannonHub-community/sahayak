@@ -27,6 +27,7 @@ export default async function handler(
     // Build the citizen profile object to store
     const profile: CitizenProfile = {
       citizen_id: citizenId,
+      ble_peer_id: `PEER-${citizenId.replace(/[^A-Za-z0-9]/g, '').slice(-8)}`,
       name: payload.name.trim(),
       phone: payload.phone.trim(),
       gender: payload.gender,

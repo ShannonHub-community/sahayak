@@ -4,8 +4,10 @@ import dynamic from 'next/dynamic';
 import type { CitizenLocation } from '@/types/registration';
 import type { SOSLocation } from '@/types/sos';
 
-const MiniMap = dynamic(
-  () => import('../MiniMap').then((mod) => mod.MiniMap),
+import type { MiniMapProps } from '@/components/sos/MiniMap';
+
+const MiniMap = dynamic<MiniMapProps>(
+  () => import('@/components/sos/MiniMap').then((mod) => mod.MiniMap),
   {
     ssr: false,
     loading: () => (
@@ -15,6 +17,7 @@ const MiniMap = dynamic(
     ),
   }
 );
+
 
 interface StepBasicProfileProps {
   name: string;

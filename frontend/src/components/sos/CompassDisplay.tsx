@@ -13,7 +13,7 @@ import {
   Radio,
   RefreshCw
 } from 'lucide-react';
-import type { NearestShelter } from '../types/sos';
+import type { NearestShelter } from '@/types/sos';
 import { PANVEL_SAMPLE_SHELTERS } from '@/constants/sampleShelters';
 
 interface CompassDisplayProps {

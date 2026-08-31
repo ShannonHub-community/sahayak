@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { Crosshair, AlertCircle, CheckCircle2, RefreshCw, MapPin, WifiOff, Navigation } from 'lucide-react';
-import type { SOSLocation } from '../types/sos';
+import type { SOSLocation } from '@/types/sos';
 
 export interface MiniMapProps {
   mode?: 'live' | 'pick';

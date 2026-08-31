@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef } from 'react';
 import Head from 'next/head';
 import { GovHeader } from '@/components/GovHeader';

@@ -1,4 +1,4 @@
-import type { SOSPayload, SOSResponse } from '../types/sos';
+import type { SOSPayload, SOSResponse } from '@/types/sos';
 
 const EMERGENCY_SMS_RECIPIENT = '112'; // National Emergency Dispatch Number
 

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -16,7 +18,8 @@ import { GovHeader } from '@/components/GovHeader';
 import { GovFooter } from '@/components/GovFooter';
 import { AlertCard } from '@/components/AlertCard';
 import { usePublicAlerts } from '@/services/alerts';
-import type { AlertSeverity } from '@/types/alerts';
+import type { AlertSeverity, PublicAlert } from '@/types/alerts';
+
 
 export default function UpdatesPage() {
   const mainContentRef = useRef<HTMLDivElement | null>(null);
@@ -80,14 +83,15 @@ export default function UpdatesPage() {
   };
 
   // Filter alerts by selected severity
-  const filteredAlerts = alerts.filter((alert) => {
+  const filteredAlerts = alerts.filter((alert: PublicAlert) => {
     if (selectedSeverity === 'all') return true;
     return alert.severity === selectedSeverity;
   });
 
-  const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
-  const warningCount = alerts.filter((a) => a.severity === 'warning').length;
-  const infoCount = alerts.filter((a) => a.severity === 'info').length;
+  const criticalCount = alerts.filter((a: PublicAlert) => a.severity === 'critical').length;
+  const warningCount = alerts.filter((a: PublicAlert) => a.severity === 'warning').length;
+  const infoCount = alerts.filter((a: PublicAlert) => a.severity === 'info').length;
+
 
   return (
     <div
@@ -288,7 +292,7 @@ export default function UpdatesPage() {
           {/* Filtered Alerts List */}
           {!isLoading && filteredAlerts.length > 0 && (
             <div className="space-y-3">
-              {filteredAlerts.map((alert) => (
+              {filteredAlerts.map((alert: PublicAlert) => (
                 <AlertCard key={alert.id} alert={alert} />
               ))}
             </div>

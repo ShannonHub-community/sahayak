@@ -13,8 +13,10 @@ import {
   HelpCircle
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import type { MiniMapProps } from './MiniMap';
 
-const MiniMap = dynamic(
+const MiniMap = dynamic<MiniMapProps>(
+
   () => import('./MiniMap').then((mod) => mod.MiniMap),
   {
     ssr: false,
@@ -25,12 +27,13 @@ const MiniMap = dynamic(
     ),
   }
 );
-import type { SOSLocation, SOSPayload, SOSResponse, CitizenProfile } from '../types/sos';
-import { getBrowserIdentifier, getBrowserSessionId } from '../services/browserIdentifier';
-import { lookupCitizenProfile } from '../services/autofill';
-import { getCachedGuide } from '../services/offlineCache';
-import type { FirstAidGuideContent } from '../services/offlineCache';
-import { submitSOS } from '../services/sos';
+import type { SOSLocation, SOSPayload, SOSResponse, CitizenProfile } from '@/types/sos';
+import { getBrowserIdentifier, getBrowserSessionId } from '@/services/browserIdentifier';
+import { lookupCitizenProfile } from '@/services/autofill';
+import { getCachedGuide } from '@/services/offlineCache';
+import type { FirstAidGuideContent } from '@/services/offlineCache';
+import { submitSOS } from '@/services/sos';
+
 
 interface SOSFormProps {
   onCancel?: () => void;
@@ -514,7 +517,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
           <MiniMap
             mode="live"
             location={currentLocation}
-            onLocationChange={(loc) => setCurrentLocation(loc)}
+            onLocationChange={(loc: SOSLocation) => setCurrentLocation(loc)}
             onRefreshLocation={acquireGPS}
             isLoadingLocation={isAcquiringLocation}
             className="mb-2"
