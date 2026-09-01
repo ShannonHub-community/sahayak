@@ -13,9 +13,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from shared.database import get_db
-from schemas import SOSSubmitRequest
-import geo
+from services.sos_service.shared.database import get_db
+from services.sos_service.schemas import SOSSubmitRequest
+from services.sos_service import geo
 
 SHELTERS_PATH = Path(__file__).resolve().parent / "shelters.json"
 

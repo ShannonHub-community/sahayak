@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from services.resource_service.schemas import (
@@ -23,11 +23,15 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, event_type: str, payload: Any):
-        for connection in self.active_connections:
-            await connection.send_json({"event": event_type, "payload": payload})
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json({"event": event_type, "payload": payload})
+            except Exception:
+                pass
 
 
 manager = ConnectionManager()
@@ -39,7 +43,9 @@ def get_resource_service():
 
 # ── REST Endpoints ─────────────────────────────────────────────────────
 
+@router.get("", response_model=List[ResourceResponse])
 @router.get("/", response_model=List[ResourceResponse])
+@router.get("/inventory", response_model=List[ResourceResponse])
 async def list_resources(
     category: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
@@ -51,7 +57,15 @@ async def list_resources(
     return await service.get_resources(category=category, status=status, zone=zone, search=search)
 
 
+@router.get("/shelters", response_model=List[Dict[str, Any]])
+async def list_shelters(service: ResourceService = Depends(get_resource_service)):
+    """Returns shelter capacities, occupancy rates, and flood vulnerability levels."""
+    return await service.get_shelters()
+
+
+@router.post("", response_model=ResourceResponse)
 @router.post("/", response_model=ResourceResponse)
+@router.post("/add-stock", response_model=ResourceResponse)
 async def create_government_stock(
     data: ResourceCreate,
     service: ResourceService = Depends(get_resource_service),
@@ -66,7 +80,6 @@ async def create_government_stock(
 async def get_insights(service: ResourceService = Depends(get_resource_service)):
     """Fetch active AI depletion/overcrowding insight cards."""
     insights = await service.evaluate_insights()
-    # Broadcast any active alerts to connected clients
     for insight in insights:
         await manager.broadcast("AI_INSIGHT_ALERT", insight.model_dump(mode='json'))
     return insights

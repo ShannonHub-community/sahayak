@@ -126,7 +126,10 @@ export default function DigitalTwinMap() {
   useTwinWebsocket();
 
   const entities = useTwinStore((state) => state.entities);
-  const [selectedEntity, setSelectedEntity] = useState<TwinMapState | null>(null);
+  // selectedEntity is lifted into the Zustand store so CommandCenter
+  // can read it reactively without prop drilling.
+  const selectedEntity = useTwinStore((state) => state.selectedEntity);
+  const setSelectedEntity = useTwinStore((state) => state.setSelectedEntity);
   const [selectedFlood, setSelectedFlood] = useState<FloodPoint | null>(null);
 
   const getCoordinates = (entity: TwinMapState): { lat: number; lng: number } | null => {
@@ -151,10 +154,10 @@ export default function DigitalTwinMap() {
 
   const getStatusBadge = (status: string) => {
     const s = (status || "").toLowerCase();
-    if (s === "critical" || s === "busy") return "bg-red-500/20 text-red-400 border-red-500/30";
-    if (s === "available" || s === "open" || s === "active") return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-    if (s === "deployed") return "bg-sky-500/20 text-sky-400 border-sky-500/30";
-    return "bg-slate-500/20 text-slate-300 border-slate-500/30";
+    if (s === "critical" || s === "busy") return "bg-rose-50 text-rose-700 border-rose-200";
+    if (s === "available" || s === "open" || s === "active") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (s === "deployed") return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-slate-100 text-slate-700 border-slate-200";
   };
 
   const getEntityTypeLabel = (type: string) => {
@@ -206,36 +209,47 @@ export default function DigitalTwinMap() {
                 className="relative group cursor-pointer flex flex-col items-center"
                 title={`${flood.name} — ${flood.depth} (${flood.status})`}
               >
-                {/* Outer Pulsating Ripple Aura */}
+                {/* Outer Pulsating Ripple */}
                 <span
-                  className={`absolute -inset-1.5 rounded-full opacity-70 animate-ping ${isCritical ? "bg-cyan-400" : "bg-sky-400"
-                    }`}
+                  className={`absolute -inset-1 rounded-full opacity-60 animate-ping ${
+                    isCritical ? "bg-rose-400" : "bg-sky-400"
+                  }`}
                 />
 
-                {/* Tactical Glassmorphic Flood Badge */}
+                {/* Clean Flood Badge */}
                 <div
-                  className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md shadow-lg transition-all duration-200 hover:scale-110 ${isSelected
-                      ? "bg-slate-900/95 border-2 border-cyan-400 shadow-[0_0_18px_rgba(6,182,212,0.8)] scale-105"
-                      : "bg-slate-900/90 border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.4)]"
-                    }`}
+                  className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-md transition-all duration-200 hover:scale-105 ${
+                    isSelected
+                      ? "bg-slate-900 text-white border-2 border-slate-900 shadow-md scale-105"
+                      : "bg-white text-slate-900 border border-slate-300 shadow-sm"
+                  }`}
                 >
                   <span className="relative flex items-center justify-center">
                     <Droplets
                       size={13}
-                      className={`${isCritical ? "text-cyan-300 animate-pulse" : "text-sky-300"
-                        }`}
+                      className={
+                        isSelected
+                          ? "text-sky-300"
+                          : isCritical
+                          ? "text-rose-600"
+                          : "text-sky-600"
+                      }
                     />
                   </span>
-                  <span className="text-[11px] font-bold tracking-tight whitespace-nowrap text-cyan-200">
+                  <span className={`text-[11px] font-bold tracking-tight whitespace-nowrap ${
+                    isSelected ? "text-white" : "text-slate-900"
+                  }`}>
                     {flood.depth}
                   </span>
-                  <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                    isSelected ? "text-slate-300" : "text-slate-500"
+                  }`}>
                     WATER
                   </span>
                 </div>
 
                 {/* Subtitle location badge on hover */}
-                <div className="absolute top-full mt-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/90 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded border border-cyan-500/40 whitespace-nowrap shadow-md z-10">
+                <div className="absolute top-full mt-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[9px] px-2 py-0.5 rounded shadow-md border border-slate-800 whitespace-nowrap z-10">
                   {flood.name}
                 </div>
               </div>
@@ -257,7 +271,7 @@ export default function DigitalTwinMap() {
               onClick={(e: any) => {
                 e.originalEvent.stopPropagation();
                 setSelectedFlood(null);
-                setSelectedEntity((prev) => (prev?.id === entity.id ? null : entity));
+                setSelectedEntity(selectedEntity?.id === entity.id ? null : entity);
               }}
             >
               <div className="cursor-pointer">
@@ -279,18 +293,18 @@ export default function DigitalTwinMap() {
             closeOnClick={false}
             className="z-50"
           >
-            <div className="bg-slate-900/95 backdrop-blur-md text-white border border-cyan-500/50 rounded-lg shadow-2xl p-2.5 w-60 font-sans pointer-events-auto">
+            <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-md p-2.5 w-60 font-sans pointer-events-auto">
               {/* Header */}
-              <div className="flex items-center justify-between gap-1.5 border-b border-cyan-900/60 pb-1.5 mb-1.5">
+              <div className="flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5 mb-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="p-1 rounded bg-cyan-950/80 border border-cyan-500/50 text-cyan-400 shrink-0">
-                    <Waves size={14} className="text-cyan-400" />
+                  <span className="p-1 rounded bg-blue-50 border border-blue-200 text-blue-900 shrink-0">
+                    <Waves size={14} className="text-blue-900" />
                   </span>
                   <div className="min-w-0">
-                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-cyan-400 truncate">
+                    <h4 className="text-[9px] font-bold uppercase tracking-wider text-slate-500 truncate">
                       Flood Hazard Zone
                     </h4>
-                    <p className="text-xs font-bold text-slate-100 truncate">
+                    <p className="text-xs font-bold text-slate-900 truncate">
                       {selectedFlood.name}
                     </p>
                   </div>
@@ -300,7 +314,7 @@ export default function DigitalTwinMap() {
                     e.stopPropagation();
                     setSelectedFlood(null);
                   }}
-                  className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors shrink-0"
+                  className="p-0.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors shrink-0"
                 >
                   <X size={13} />
                 </button>
@@ -310,12 +324,13 @@ export default function DigitalTwinMap() {
               <div className="space-y-1.5 text-[11px]">
                 {/* Status & Severity */}
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-slate-400 text-[10px]">Status:</span>
+                  <span className="text-slate-500 text-[10px]">Status:</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded text-[10px] font-medium border ${selectedFlood.severity === "critical"
-                        ? "bg-red-500/20 text-red-300 border-red-500/40"
-                        : "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                      }`}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                      selectedFlood.severity === "critical"
+                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
                   >
                     {selectedFlood.status}
                   </span>
@@ -323,22 +338,22 @@ export default function DigitalTwinMap() {
 
                 {/* Depth & Flow Rate */}
                 <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                  <div className="bg-slate-800/80 border border-cyan-500/30 rounded p-1.5">
-                    <div className="flex items-center gap-1 text-[9px] text-cyan-400 mb-0.5">
-                      <Droplets size={10} />
+                  <div className="bg-slate-50 border border-slate-200 rounded p-1.5">
+                    <div className="flex items-center gap-1 text-[9px] text-slate-600 mb-0.5 font-medium">
+                      <Droplets size={10} className="text-blue-600" />
                       <span>Water Depth</span>
                     </div>
-                    <p className="text-sm font-extrabold text-cyan-300">
+                    <p className="text-sm font-extrabold text-slate-900">
                       {selectedFlood.depth}
                     </p>
                   </div>
 
-                  <div className="bg-slate-800/80 border border-slate-700/60 rounded p-1.5">
-                    <div className="flex items-center gap-1 text-[9px] text-slate-400 mb-0.5">
-                      <Gauge size={10} />
+                  <div className="bg-slate-50 border border-slate-200 rounded p-1.5">
+                    <div className="flex items-center gap-1 text-[9px] text-slate-600 mb-0.5 font-medium">
+                      <Gauge size={10} className="text-slate-500" />
                       <span>Current Speed</span>
                     </div>
-                    <p className="text-sm font-extrabold text-slate-200">
+                    <p className="text-sm font-extrabold text-slate-900">
                       {selectedFlood.flowSpeed}
                     </p>
                   </div>
@@ -346,23 +361,23 @@ export default function DigitalTwinMap() {
 
                 {/* River Source */}
                 <div className="flex items-center justify-between gap-1 text-[10px]">
-                  <span className="text-slate-400">Channel / Basin:</span>
-                  <span className="text-slate-200 font-medium">{selectedFlood.river}</span>
+                  <span className="text-slate-500">Channel / Basin:</span>
+                  <span className="text-slate-900 font-semibold">{selectedFlood.river}</span>
                 </div>
 
                 {/* Field Notes */}
-                <div className="text-[10px] text-slate-300 bg-slate-800/50 p-1.5 rounded border border-slate-700/50 leading-tight">
-                  <span className="text-cyan-400 font-semibold">Incident Note: </span>
+                <div className="text-[10px] text-slate-700 bg-slate-50 p-1.5 rounded border border-slate-200 leading-tight">
+                  <span className="text-slate-900 font-semibold">Incident Note: </span>
                   {selectedFlood.notes}
                 </div>
 
                 {/* Telemetry Sync Timestamp */}
-                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800 text-[9px] text-slate-400">
+                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 text-[9px] text-slate-500">
                   <div className="flex items-center gap-0.5">
-                    <Clock size={10} className="text-slate-500" />
+                    <Clock size={10} className="text-slate-400" />
                     <span>Telemetry Sync:</span>
                   </div>
-                  <span className="text-slate-300 font-medium">
+                  <span className="text-slate-700 font-medium">
                     {selectedFlood.last_updated}
                   </span>
                 </div>
@@ -383,23 +398,23 @@ export default function DigitalTwinMap() {
             closeOnClick={false}
             className="z-50"
           >
-            <div className="bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 rounded-lg shadow-xl p-2.5 w-52 font-sans select-none pointer-events-auto">
-              <div className="flex items-center justify-between gap-1.5 border-b border-slate-800 pb-1.5 mb-1.5">
+            <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-md p-2.5 w-52 font-sans select-none pointer-events-auto">
+              <div className="flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5 mb-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="p-0.5 rounded bg-slate-800 border border-slate-700 text-sky-400 shrink-0">
+                  <span className="p-1 rounded bg-slate-100 border border-slate-200 shrink-0">
                     {selectedEntity.entity_type === "sos_report" || selectedEntity.entity_type === "sos" ? (
-                      <ShieldAlert size={13} className="text-red-400" />
+                      <ShieldAlert size={13} className="text-rose-600" />
                     ) : selectedEntity.entity_type === "infrastructure" ? (
-                      <AlertCircle size={13} className="text-amber-400" />
+                      <AlertCircle size={13} className="text-amber-600" />
                     ) : (
-                      <Activity size={13} className="text-emerald-400" />
+                      <Activity size={13} className="text-emerald-600" />
                     )}
                   </span>
                   <div className="min-w-0">
-                    <h4 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 truncate">
+                    <h4 className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 truncate">
                       {getEntityTypeLabel(selectedEntity.entity_type)}
                     </h4>
-                    <p className="text-xs font-bold text-slate-100 capitalize truncate">
+                    <p className="text-xs font-bold text-slate-900 capitalize truncate">
                       {selectedEntity.symbol.replace(/_/g, " ")}
                     </p>
                   </div>
@@ -409,7 +424,7 @@ export default function DigitalTwinMap() {
                     e.stopPropagation();
                     setSelectedEntity(null);
                   }}
-                  className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors shrink-0"
+                  className="p-0.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors shrink-0"
                 >
                   <X size={13} />
                 </button>
@@ -417,31 +432,31 @@ export default function DigitalTwinMap() {
 
               <div className="space-y-1 text-[11px]">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-slate-400 text-[10px]">Status:</span>
-                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-medium capitalize border ${getStatusBadge(selectedEntity.status)}`}>
+                  <span className="text-slate-500 text-[10px]">Status:</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize border ${getStatusBadge(selectedEntity.status)}`}>
                     {selectedEntity.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-slate-400 text-[10px]">
+                  <span className="text-slate-500 text-[10px]">
                     {selectedEntity.entity_type === "resource_unit" && selectedEntity.symbol.includes("shelter")
                       ? "Capacity:"
                       : selectedEntity.entity_type === "sos_report" || selectedEntity.entity_type === "sos"
                         ? "Severity:"
                         : "Units:"}
                   </span>
-                  <span className="font-semibold text-slate-200 bg-slate-800/80 px-1.5 py-0.2 rounded border border-slate-700/50 text-[10px]">
+                  <span className="font-semibold text-slate-900 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 text-[10px]">
                     {selectedEntity.severity_count ?? 1}
                   </span>
                 </div>
 
                 {/* Coordinates */}
-                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-800/70 text-[9px] text-slate-400">
+                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 text-[9px] text-slate-500">
                   <div className="flex items-center gap-0.5">
-                    <MapPin size={10} className="text-slate-500" />
+                    <MapPin size={10} className="text-slate-400" />
                     <span>Coords:</span>
                   </div>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-slate-700">
                     {selectedEntityCoords.lat.toFixed(4)}, {selectedEntityCoords.lng.toFixed(4)}
                   </span>
                 </div>
@@ -450,10 +465,10 @@ export default function DigitalTwinMap() {
                 {selectedEntity.last_updated && (
                   <div className="flex items-center justify-between gap-1 text-[9px] text-slate-500">
                     <div className="flex items-center gap-0.5">
-                      <Clock size={9} />
+                      <Clock size={9} className="text-slate-400" />
                       <span>Updated:</span>
                     </div>
-                    <span>
+                    <span className="text-slate-700">
                       {new Date(selectedEntity.last_updated).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
