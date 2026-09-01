@@ -1,7 +1,7 @@
 import React from 'react';
 import { PieChart, DollarSign, Activity, Utensils, HeartHandshake, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
-export const FundsTrackerWidget = ({ trackerData }) => {
+export const FundsTrackerWidget = ({ trackerData = null }) => {
   // Fallback data if backend data not passed yet
   const categories = trackerData?.categories || [
     { name: "Food & Meals", percentage: 45.0, color: "#f97316", status: "Active Allocation", total_units: "5,400 Packets" },

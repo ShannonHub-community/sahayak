@@ -9,7 +9,10 @@ export const CHAT_MESSAGE_CHAR_UUID = '0000ffe2-0000-1000-8000-00805f9b34fb';
 
 const STORAGE_KEY_CACHED_PROFILE = 'sahayak_cached_citizen_profile';
 
-// Ambient types for Web Bluetooth API to ensure universal compilation
+// ============================================================================
+// AMBIENT TYPES FOR WEB BLUETOOTH API
+// ============================================================================
+
 interface BluetoothCharacteristic {
   uuid: string;
   readValue: () => Promise<DataView>;
@@ -56,6 +59,10 @@ interface WebBluetoothAPI {
   getAvailability?: () => Promise<boolean>;
 }
 
+// ============================================================================
+// PUBLIC MESH DATA INTERFACES
+// ============================================================================
+
 export interface BlePeer {
   deviceId: string;
   peerId: string;
@@ -83,6 +90,10 @@ export interface UseBleMeshReturn {
   isRegistered: boolean;
   localPeer: LocalPeerProfile | null;
 
+  // Dual-mode Control (Real Web Bluetooth vs Simulated Pitch Mode)
+  isDemoMode: boolean;
+  toggleDemoMode: (enable?: boolean) => void;
+
   // Peer state & scanning
   peers: BlePeer[];
   isScanning: boolean;
@@ -98,6 +109,39 @@ export interface UseBleMeshReturn {
   error: string | null;
   clearError: () => void;
 }
+
+// ============================================================================
+// DEMO MODE CONSTANTS
+// ============================================================================
+
+const DEFAULT_LOCAL_PEER: LocalPeerProfile = {
+  peerId: 'CIT-LOCAL',
+  peerName: 'My Device (Demo)',
+  citizenId: 'CIT-DEMO-001',
+};
+
+const MOCK_PEERS: BlePeer[] = [
+  {
+    deviceId: 'dev-demo-8831',
+    peerId: 'CIT-DEMO-8831',
+    peerName: 'Rahul (Test Device 1)',
+    connected: true,
+  },
+  {
+    deviceId: 'dev-demo-9942',
+    peerId: 'CIT-DEMO-9942',
+    peerName: 'Priya (Test Device 2)',
+    connected: true,
+  },
+];
+
+const MOCK_REPLIES = [
+  'I am safe, moving to the higher ground now.',
+  'Do you have any drinking water left?',
+  'NDRF rescue boat just crossed the main road. Heading towards the relief camp.',
+  'Understood! Conserving battery. Will broadcast our coordinates every 10 mins.',
+  'We are sheltered on the 2nd floor of the Community Center with 4 others.',
+];
 
 /**
  * Safely access the browser's Web Bluetooth API
@@ -119,7 +163,6 @@ function parseLocalProfile(): LocalPeerProfile | null {
     if (!raw) return null;
     const profile = JSON.parse(raw);
 
-    // Extract ble_peer_id with safe fallbacks
     const peerId = profile.ble_peer_id || profile.citizen_id || '';
     const peerName = (profile.name || '').trim() || 'Sahayak Citizen';
 
@@ -141,9 +184,13 @@ function parseLocalProfile(): LocalPeerProfile | null {
 
 /**
  * Hook for managing Web Bluetooth Mesh peer discovery and ephemeral offline messaging
+ * Supports Dual-Mode Architecture: Real Web Bluetooth GATT hardware or Simulated Demo Mode
  */
 export function useBleMesh(): UseBleMeshReturn {
-  const [isSupported, setIsSupported] = useState<boolean>(false);
+  // Dual-mode state (defaults to true for smooth presentations and offline fallback)
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+
+  const [hardwareSupported, setHardwareSupported] = useState<boolean>(false);
   const [localPeer, setLocalPeer] = useState<LocalPeerProfile | null>(null);
   const [peers, setPeers] = useState<BlePeer[]>([]);
   const [messages, setMessages] = useState<BleChatMessage[]>([]);
@@ -151,19 +198,21 @@ export function useBleMesh(): UseBleMeshReturn {
   const [error, setError] = useState<string | null>(null);
 
   const connectedDevicesRef = useRef<Map<string, BluetoothDeviceInstance>>(new Map());
+  const replyIndexRef = useRef<number>(0);
 
   // Initialize capability detection & local identity on mount
   useEffect(() => {
     const supported = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
-    setIsSupported(supported);
+    setHardwareSupported(supported);
 
     const profile = parseLocalProfile();
-    setLocalPeer(profile);
+    setLocalPeer(profile || (isDemoMode ? DEFAULT_LOCAL_PEER : null));
 
     // Synchronize if profile changes in storage
     const handleStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY_CACHED_PROFILE) {
-        setLocalPeer(parseLocalProfile());
+        const updated = parseLocalProfile();
+        setLocalPeer(updated || (isDemoMode ? DEFAULT_LOCAL_PEER : null));
       }
     };
 
@@ -171,9 +220,24 @@ export function useBleMesh(): UseBleMeshReturn {
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [isDemoMode]);
 
-  const isRegistered = Boolean(localPeer && localPeer.peerId);
+  // Capability gates
+  const isSupported = isDemoMode ? true : hardwareSupported;
+  const isRegistered = isDemoMode ? true : Boolean(localPeer && localPeer.peerId);
+
+  const toggleDemoMode = useCallback((enable?: boolean) => {
+    setIsDemoMode((prev) => {
+      const nextMode = typeof enable === 'boolean' ? enable : !prev;
+      if (nextMode) {
+        setLocalPeer((curr) => curr || DEFAULT_LOCAL_PEER);
+      } else {
+        setLocalPeer(parseLocalProfile());
+      }
+      return nextMode;
+    });
+    setError(null);
+  }, []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -184,25 +248,43 @@ export function useBleMesh(): UseBleMeshReturn {
   }, []);
 
   const disconnectPeer = useCallback((deviceId: string) => {
-    const device = connectedDevicesRef.current.get(deviceId);
-    if (device && device.gatt && device.gatt.connected) {
-      try {
-        device.gatt.disconnect();
-      } catch (err) {
-        console.debug('Error disconnecting BLE peer GATT server:', err);
+    if (connectedDevicesRef.current.has(deviceId)) {
+      const device = connectedDevicesRef.current.get(deviceId);
+      if (device && device.gatt && device.gatt.connected) {
+        try {
+          device.gatt.disconnect();
+        } catch (err) {
+          console.debug('Error disconnecting BLE peer GATT server:', err);
+        }
       }
+      connectedDevicesRef.current.delete(deviceId);
     }
-    connectedDevicesRef.current.delete(deviceId);
     setPeers((prev) =>
       prev.map((p) => (p.deviceId === deviceId ? { ...p, connected: false } : p))
     );
   }, []);
 
   /**
-   * User-initiated scan & pairing flow
+   * Scan for peers:
+   * - Demo Mode: Runs mock radio discovery (2.5s delay, returns Rahul & Priya)
+   * - Hardware Mode: Invokes navigator.bluetooth.requestDevice with SAHAYAK_SERVICE_UUID
    */
   const scanForPeers = useCallback(async (): Promise<BlePeer | null> => {
     setError(null);
+
+    // 1. DEMO MODE PATH
+    if (isDemoMode) {
+      setIsScanning(true);
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          setIsScanning(false);
+          setPeers(MOCK_PEERS);
+          resolve(MOCK_PEERS[0]);
+        }, 2500);
+      });
+    }
+
+    // 2. HARDWARE WEB BLUETOOTH PATH
     const bluetooth = getBluetoothApi();
 
     if (!bluetooth) {
@@ -296,17 +378,19 @@ export function useBleMesh(): UseBleMeshReturn {
       console.error('BLE Scan Error:', err);
       return null;
     }
-  }, [isRegistered, localPeer]);
+  }, [isDemoMode, isRegistered, localPeer]);
 
   /**
-   * In-memory ephemeral message transmission (No DB/API writes)
+   * Send message:
+   * - Demo Mode: Immediately appends message, then triggers a 2-4s delayed contextual peer auto-reply
+   * - Hardware Mode: Encodes packet and writes to CHAT_MESSAGE_CHAR_UUID GATT characteristic
    */
   const sendMessage = useCallback(
     async (targetDeviceId: string, text: string): Promise<boolean> => {
       const trimmed = text.trim();
       if (!trimmed) return false;
 
-      const senderId = localPeer?.peerId || 'CITIZEN-LOCAL';
+      const senderId = localPeer?.peerId || (isDemoMode ? 'CIT-LOCAL' : 'CITIZEN-LOCAL');
       const timestamp = new Date().toISOString();
 
       const messageObj: BleChatMessage = {
@@ -316,10 +400,35 @@ export function useBleMesh(): UseBleMeshReturn {
         timestamp,
       };
 
-      // 1. Maintain in-memory strictly in React state
+      // 1. Maintain in-memory in React state
       setMessages((prev) => [...prev, messageObj]);
 
-      // 2. Dispatch packet over GATT characteristic if connected
+      // 2. DEMO MODE: Simulate peer response with 2-4s realistic radio latency
+      if (isDemoMode) {
+        const targetPeer =
+          peers.find((p) => p.deviceId === targetDeviceId) ||
+          MOCK_PEERS.find((p) => p.deviceId === targetDeviceId) ||
+          MOCK_PEERS[0];
+        const replySenderId = targetPeer.peerId;
+
+        const delayMs = 2000 + Math.floor(Math.random() * 2000); // 2000ms - 4000ms
+        const replyText = MOCK_REPLIES[replyIndexRef.current % MOCK_REPLIES.length];
+        replyIndexRef.current += 1;
+
+        setTimeout(() => {
+          const replyMessage: BleChatMessage = {
+            id: `ble-reply-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            senderId: replySenderId,
+            text: replyText,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, replyMessage]);
+        }, delayMs);
+
+        return true;
+      }
+
+      // 3. HARDWARE MODE: Dispatch packet over GATT characteristic if connected
       const device = connectedDevicesRef.current.get(targetDeviceId);
       if (device && device.gatt && device.gatt.connected) {
         try {
@@ -338,19 +447,21 @@ export function useBleMesh(): UseBleMeshReturn {
             await char.writeValueWithResponse(encoder.encode(payload));
           }
         } catch (gattErr) {
-          console.debug('GATT packet transmission simulation fallback:', gattErr);
+          console.debug('GATT packet transmission fallback:', gattErr);
         }
       }
 
       return true;
     },
-    [localPeer]
+    [isDemoMode, localPeer, peers]
   );
 
   return {
     isSupported,
     isRegistered,
     localPeer,
+    isDemoMode,
+    toggleDemoMode,
     peers,
     isScanning,
     scanForPeers,

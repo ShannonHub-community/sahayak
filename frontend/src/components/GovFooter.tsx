@@ -31,7 +31,7 @@ export const GovFooter: React.FC = () => {
             </div>
             <ul className="space-y-1 text-[11px]">
               <li>
-                <Link href="/citizen" className="hover:text-[#FF9933] transition-colors">
+                <Link href="/citizen/sos" className="hover:text-[#FF9933] transition-colors">
                   Emergency SOS Report
                 </Link>
               </li>
@@ -41,7 +41,7 @@ export const GovFooter: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/admin" className="hover:text-[#FF9933] transition-colors flex items-center gap-1">
+                <Link href="/admin/twin" className="hover:text-[#FF9933] transition-colors flex items-center gap-1">
                   <span>EOC Command Center (Admin)</span>
                   <ExternalLink className="w-3 h-3 text-slate-400" />
                 </Link>

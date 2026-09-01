@@ -37,7 +37,7 @@ const ResourceManagerTab = dynamic(
 );
 
 const PublicCommsModule = dynamic(
-  () => import('@/components/public_commas'),
+  () => import('@/components/public_comms'),
   {
     ssr: false,
     loading: () => <TabLoadingSkeleton title="Public Communications & News Matrix" />,
@@ -163,7 +163,7 @@ function OperationsDashboard() {
 
               {/* Quick Link to Digital Twin Map */}
               <Link
-                href="/admin"
+                href="/admin/twin"
                 className="bg-white/10 hover:bg-white/20 active:bg-white/30 text-white border border-white/30 px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
                 title="Switch to GIS Digital Twin 3D View"
               >

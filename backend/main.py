@@ -37,15 +37,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS Middleware allowing localhost frontend portals
+# CORS Middleware allowing localhost frontend portals and mobile tunneling tools
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
+        "https://sahayak.com",
     ],
+    allow_origin_regex=r"^https://.*\.ngrok-free\.app$|^https://.*\.ngrok\.io$|^https://.*\.loca\.lt$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

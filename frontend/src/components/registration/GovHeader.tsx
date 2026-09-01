@@ -215,9 +215,9 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
             {/* 2. SOS Emergency Tab */}
             <Link
-              href="/citizen"
+              href="/citizen/sos"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
-                pathname === '/citizen'
+                pathname === '/citizen/sos' || pathname === '/'
                   ? 'bg-[#07284B] text-white font-bold border-b-2 border-[#FF9933]'
                   : 'text-blue-100 hover:text-white hover:bg-white/10'
               }`}
@@ -241,9 +241,9 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
             {/* 4. Public Comms */}
             <Link
-              href="/public-comms"
+              href="/admin/public-comms"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
-                pathname === '/public-comms'
+                pathname === '/admin/public-comms'
                   ? 'bg-[#07284B] text-white font-bold border-b-2 border-[#FF9933]'
                   : 'text-blue-100 hover:text-white hover:bg-white/10'
               }`}
@@ -254,9 +254,9 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
             {/* 5. Offline BLE Chat */}
             <Link
-              href="/citizen/offline-chat"
+              href="/citizen/ble"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
-                pathname === '/citizen/offline-chat'
+                pathname === '/citizen/ble'
                   ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
                   : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
               }`}
@@ -281,7 +281,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
           <div className="hidden sm:flex items-center">
             <Link
-              href="/admin"
+              href="/admin/twin"
               className="flex items-center gap-1 text-xs text-blue-200 hover:text-white bg-blue-950/70 hover:bg-blue-900 px-2.5 py-1 rounded border border-blue-700/60 font-semibold transition-colors"
             >
               <LayoutDashboard className="w-3 h-3 text-amber-300" />
@@ -303,7 +303,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
             <span>Network connection lost. Offline mesh communications active.</span>
           </div>
           <Link
-            href="/citizen/offline-chat"
+            href="/citizen/ble"
             className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-1.5 rounded-sm shadow-sm transition-colors"
           >
             <Radio className="w-3.5 h-3.5 text-emerald-400" />
@@ -370,17 +370,17 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
                 {/* SOS */}
                 <Link
-                  href="/citizen"
+                  href="/citizen/sos"
                   onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
-                    pathname === '/citizen' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
+                    pathname === '/citizen/sos' || pathname === '/' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <AlertOctagon className="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform" />
                     <div>
                       <div>Emergency SOS / आपातकालीन सहायता</div>
-                      <div className="text-[11px] font-normal text-gray-500">Live GPS distress & shelter bearing</div>
+                      <div className="text-[11px] font-normal text-gray-500">Live GPS distress &amp; shelter bearing</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -401,7 +401,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                         {isRegistered ? 'Citizen Registration (Active)' : 'Pre-Register Citizen Profile'}
                       </div>
                       <div className="text-[11px] font-normal text-gray-500">
-                        {isRegistered ? 'Profile recognized on this device' : 'Save family, medical & offline guides'}
+                        {isRegistered ? 'Profile recognized on this device' : 'Save family, medical &amp; offline guides'}
                       </div>
                     </div>
                   </div>
@@ -410,10 +410,10 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
                 {/* Offline BLE Mesh Chat */}
                 <Link
-                  href="/citizen/offline-chat"
+                  href="/citizen/ble"
                   onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
-                    pathname === '/citizen/offline-chat' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
+                    pathname === '/citizen/ble' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -446,17 +446,17 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
                 {/* EOC Command Center */}
                 <Link
-                  href="/admin"
+                  href="/admin/twin"
                   onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
-                    pathname === '/admin' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
+                    pathname === '/admin/twin' || pathname.startsWith('/admin') ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <LayoutDashboard className="w-4 h-4 text-[#0B3D6E] group-hover:scale-110 transition-transform" />
                     <div>
                       <div>EOC Command Center (Admin)</div>
-                      <div className="text-[11px] font-normal text-gray-500">Digital Twin & AI Decision Console</div>
+                      <div className="text-[11px] font-normal text-gray-500">Digital Twin &amp; AI Decision Console</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />

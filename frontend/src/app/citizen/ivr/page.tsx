@@ -971,7 +971,7 @@ export default function IvrSimulatorPage() {
         {/* Navigation & Telephony Header Strip */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
-            href="/citizen"
+            href="/"
             className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#0B3D6E] hover:text-[#07284B] bg-white border border-slate-300 hover:border-slate-400 px-3.5 py-1.5 rounded-sm shadow-sm transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
