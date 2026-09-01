@@ -27,7 +27,8 @@ import {
   Clock,
   Terminal,
   Activity,
-  Loader2
+  Loader2,
+  Keyboard
 } from 'lucide-react';
 import { GovHeader } from '@/components/GovHeader';
 
@@ -50,7 +51,7 @@ export type IvrStepId =
   | 'CALL_ENDED';
 
 export interface IvrCollectedData {
-  language: 'hi' | 'en' | null;
+  language: 'hi' | 'en' | 'mr' | 'kn' | null;
   intentConfirmed: boolean;
   nameAudio: string | null;
   pax: number | null;
@@ -117,13 +118,13 @@ export interface StepDefinition {
 }
 
 const STEP_DEFINITIONS: StepDefinition[] = [
-  { id: 1, title: 'Language Selection', titleHi: 'भाषा चयन', type: 'dtmf', expectedInput: '1=Hindi, 2=English', description: 'Select caller language for voice prompts' },
+  { id: 1, title: 'Language Selection', titleHi: 'भाषा चयन / भाषा निवडा', type: 'dtmf', expectedInput: '1=Hi, 2=En, 3=Mr, 4=Kn', description: 'Select caller language for voice prompts' },
   { id: 2, title: 'Intent Confirmation', titleHi: 'संकट पुष्टि', type: 'dtmf', expectedInput: '1=Confirm SOS', description: 'Confirm life-safety distress urgency' },
   { id: 3, title: 'Caller Name (Voice)', titleHi: 'नाम रिकॉर्डिंग', type: 'voice', expectedInput: 'Hold to Speak', description: 'Voice capture for backend STT resolution' },
   { id: 4, title: 'PAX Count (Headcount)', titleHi: 'फंसे लोगों की संख्या', type: 'dtmf', expectedInput: '[Count] + #', description: 'Numeric keypad headcount entry' },
-  { id: 5, title: 'Medical Emergency', titleHi: 'चिकित्सा आपात स्थिति', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Critical triage priority flag' },
-  { id: 6, title: 'Infants Present (<5yo)', titleHi: 'शिशु / छोटे बच्चे', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Pediatric care prioritization' },
-  { id: 7, title: 'Elderly / Disabled Present', titleHi: 'वृद्ध / दिव्यांग', type: 'dtmf', expectedInput: '1=Yes, 2=No', description: 'Evacuation mobility requirement' },
+  { id: 5, title: 'Medical Emergency', titleHi: 'चिकित्सा आपात स्थिति', type: 'dtmf', expectedInput: '1=Yes, 2=NO', description: 'Critical triage priority flag' },
+  { id: 6, title: 'Infants Present (<5yo)', titleHi: 'शिशु / छोटे बच्चे', type: 'dtmf', expectedInput: '1=Yes, 2=NO', description: 'Pediatric care prioritization' },
+  { id: 7, title: 'Elderly / Disabled Present', titleHi: 'वृद्ध / दिव्यांग', type: 'dtmf', expectedInput: '1=Yes, 2=NO', description: 'Evacuation mobility requirement' },
   { id: 8, title: 'Landmark / Location (Voice)', titleHi: 'लैंडमार्क / स्थान', type: 'voice', expectedInput: 'Hold to Speak', description: 'Audio description of immediate surroundings' },
   { id: 9, title: 'Optional Voice Note', titleHi: 'अतिरिक्त संदेश', type: 'hybrid', expectedInput: '1=Record, 2=Skip', description: 'Additional situational details for NDRF' },
 ];
@@ -186,6 +187,86 @@ const playDtmfTone = (digit: string, isMuted: boolean) => {
   }
 };
 
+// ============================================================================
+// CENTRALIZED MULTILINGUAL IVR PROMPTS
+// ============================================================================
+
+export const IVR_PROMPTS: Record<string, Record<'en' | 'hi' | 'mr' | 'kn', string>> = {
+  STEP_1_WELCOME: {
+    en: 'Welcome to 112. For Hindi press 1, For English press 2. Marathi sathi 3 dabava. Kannada kagi 4 otti. Press the star key (*) at any time to cancel.',
+    hi: '112 आपातकालीन सेवा में आपका स्वागत है। हिंदी के लिए 1, English 2, मराठीसाठी 3, ಕನ್ನಡಕ್ಕಾಗಿ 4 दबाएं। रद्द करने के लिए * दबाएं।',
+    mr: '112 आपत्कालीन सेवेत आपले स्वागत आहे. हिंदीसाठी 1, English 2, मराठीसाठी 3, ಕನ್ನಡ 4 दाबा. रद्द करण्यासाठी * दाबा.',
+    kn: '112 ತುರ್ತು ಸೇವೆಗೆ ಸ್ವಾಗತ. ಹಿಂದಿಗಾಗಿ 1, English 2, ಮರಾಠಿಗಾಗಿ 3, ಕನ್ನಡಕ್ಕಾಗಿ 4 ಒತ್ತಿ. ರದ್ದು ಮಾಡಲು * ಒತ್ತಿ.',
+  },
+  STEP_2_INTENT: {
+    en: 'Emergency SOS Dispatch: If you or someone near you is stranded or in immediate danger, press 1 to confirm urgent rescue request.',
+    hi: 'आपातकालीन राहत: यदि आप या आपके आसपास कोई संकट में है, तो तत्काल बचाव अनुरोध के लिए 1 दबाएं।',
+    mr: 'आपत्कालीन मदतीसाठी 1 दाबा.',
+    kn: 'ತುರ್ತು ಸಹಾಯಕ್ಕಾಗಿ 1 ಒತ್ತಿ.',
+  },
+  STEP_3_NAME: {
+    en: "Please state your full name after the tone. Hold the 'Hold to Speak' button on your keypad to record.",
+    hi: "कृपया बीप के बाद अपना पूरा नाम बोलें। रिकॉर्ड करने के लिए 'बोलने के लिए दबाएं' बटन दबाकर रखें।",
+    mr: 'कृपया बीपनंतर आपले पूर्ण नाव सांगा. रेकॉर्ड करण्यासाठी स्पीक बटण दाबून ठेवा.',
+    kn: 'ಬೀಪ್ ನಂತರ ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ತಿಳಿಸಿ.',
+  },
+  STEP_4_PAX: {
+    en: 'Enter total number of stranded persons needing rescue using the keypad, followed by the pound (#) key. (e.g. Press 4 then #).',
+    hi: 'कीपैड का उपयोग करके फंसे हुए कुल लोगों की संख्या दर्ज करें और अंत में हैश (#) दबाएं। (उदा. 4#)',
+    mr: 'अडकलेल्या लोकांची एकूण संख्या कीपॅडवर दाबा आणि शेवटी हॅश दाबा.',
+    kn: 'ಸಿಲುಕಿರುವ ಜನರ ಒಟ್ಟು ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ ಮತ್ತು ಹ್ಯಾಶ್ ಒತ್ತಿ.',
+  },
+  STEP_5_MEDICAL: {
+    en: 'Is anyone critically injured or requiring immediate medical attention? Press 1 for Yes, Press 2 for NO',
+    hi: 'क्या किसी को तत्काल चिकित्सा या गंभीर चोट की सहायता चाहिए? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+    mr: 'कोणाला तातडीच्या वैद्यकीय मदतीची गरज आहे का? होय असल्यास 1 दाबा, नसल्यास 2 दाबा.',
+    kn: 'ಯಾರಿಗಾದರೂ ತುರ್ತು ವೈದ್ಯಕೀಯ ಸಹಾಯ ಬೇಕೇ? ಹೌದು ಆದರೆ 1, ಇಲ್ಲವಾದರೆ 2 ಒತ್ತಿ.',
+  },
+  STEP_6_INFANTS: {
+    en: 'Are there any infants, toddlers, or small children under 5 years present? Press 1 for Yes, Press 2 for NO',
+    hi: 'क्या आपके समूह में 5 वर्ष से कम उम्र के शिशु या छोटे बच्चे हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+    mr: 'सोबत 5 वर्षांखालील लहान मुले आहेत का? होय असल्यास 1 दाबा, नसल्यास 2 दाबा.',
+    kn: '5 ವರ್ಷದೊಳಗಿನ ಮಕ್ಕಳಿದ್ದಾರೆಯೇ? ಹೌದು ಆದರೆ 1, ಇಲ್ಲವಾದರೆ 2 ಒತ್ತಿ.',
+  },
+  STEP_7_ELDERLY: {
+    en: 'Are there any elderly citizens or individuals with mobility disabilities present? Press 1 for Yes, Press 2 for NO',
+    hi: 'क्या समूह में वृद्ध नागरिक या चलने-फिरने में असमर्थ व्यक्ति हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+    mr: 'सोबत वृद्ध व्यक्ती आहेत का? होय असल्यास 1 दाबा, नसल्यास 2 दाबा.',
+    kn: 'ವೃದ್ಧರಿದ್ದಾರೆಯೇ? ಹೌದು ಆದರೆ 1, ಇಲ್ಲವಾದರೆ 2 ಒತ್ತಿ.',
+  },
+  STEP_8_LANDMARK: {
+    en: "Please describe your exact landmark, road, building or nearby identifiable structure. Hold the 'Hold to Speak' button to record.",
+    hi: "कृपया अपना नजदीकी लैंडमार्क, स्कूल, मंदिर या भवन बताएं। बोलने के लिए 'बोलने के लिए दबाएं' बटन दबाएं।",
+    mr: 'तुमच्या जवळची खूण किंवा ठिकाण सांगा. रेकॉर्ड करण्यासाठी बटण दाबून ठेवा.',
+    kn: 'ನಿಮ್ಮ ಹತ್ತಿರದ ಸ್ಥಳವನ್ನು ತಿಳಿಸಿ. ರೆಕಾರ್ಡ್ ಮಾಡಲು ಬಟನ್ ಒತ್ತಿ ಹಿಡಿಯಿರಿ.',
+  },
+  STEP_9_OPTIONAL_NOTE: {
+    en: 'Do you want to record an additional voice message for the NDRF rescue team? Press 1 to record, or Press 2 to finalize and dispatch rescue.',
+    hi: 'क्या आप एनडीआरएफ बचाव दल के लिए कोई अतिरिक्त संदेश रिकॉर्ड करना चाहते हैं? रिकॉर्ड के लिए 1, कॉल समाप्त करने के लिए 2 दबाएं।',
+    mr: 'एनडीआरएफ टीमसाठी अतिरिक्त संदेश रेकॉर्ड करायचा असल्यास 1 दाबा, किंवा कॉल पूर्ण करण्यासाठी 2 दाबा.',
+    kn: 'ಹೆಚ್ಚುವರಿ ಸಂದೇಶವನ್ನು ರೆಕಾರ್ಡ್ ಮಾಡಲು 1 ಒತ್ತಿ, ಅಥವಾ ಕರೆ ಮುಗಿಸಲು 2 ಒತ್ತಿ.',
+  },
+  STEP_9_RECORDING: {
+    en: "Please record your additional message now. Hold the 'Hold to Speak' button to speak.",
+    hi: "कृपया अपना अतिरिक्त संदेश बोलें। 'बोलने के लिए दबाएं' बटन दबाकर रखें।",
+    mr: 'कृपया आपला संदेश आता रेकॉर्ड करा. बोलण्यासाठी बटण दाबून ठेवा.',
+    kn: 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಚ್ಚುವರಿ ಸಂದೇಶವನ್ನು ಈಗ ರೆಕಾರ್ಡ್ ಮಾಡಿ.',
+  },
+  CALL_END_SUCCESS: {
+    en: 'Your emergency SOS request has been registered and queued for NDRF dispatch. Help is on the way. Call ended.',
+    hi: 'आपकी आपातकालीन सहायता दर्ज कर ली गई है। सहायता भेजी जा रही है। कॉल समाप्त।',
+    mr: 'तुमची आपत्कालीन विनंती नोंदवली गेली आहे. मदत पाठवली जात आहे. कॉल समाप्त.',
+    kn: 'ನಿಮ್ಮ ತುರ್ತು ವಿನಂತಿಯನ್ನು ದಾಖಲಿಸಲಾಗಿದೆ. ಸಹಾಯ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ.',
+  },
+};
+
+export const getIvrPrompt = (step: string, lang: string): string => {
+  const normalizedLang = (lang === 'hi' || lang === 'mr' || lang === 'kn') ? lang : 'en';
+  const promptGroup = IVR_PROMPTS[step];
+  if (!promptGroup) return '';
+  return promptGroup[normalizedLang] || promptGroup.en || '';
+};
+
 const INITIAL_PAYLOAD: IvrCollectedData = {
   language: null,
   intentConfirmed: false,
@@ -225,6 +306,20 @@ export default function IvrSimulatorPage() {
 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const languageRef = useRef<'hi' | 'en' | 'mr' | 'kn' | null>(null);
+
+  useEffect(() => {
+    languageRef.current = payload.language;
+  }, [payload.language]);
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Call duration counter
   useEffect(() => {
@@ -244,7 +339,7 @@ export default function IvrSimulatorPage() {
     }
   }, [transcripts]);
 
-  // Helper to add transcript entry
+  // Helper to add transcript entry & invoke Web Speech TTS for IVR prompts
   const addTranscript = useCallback((speaker: 'ivr' | 'caller' | 'system', text: string, textHi?: string, inputType?: 'dtmf' | 'voice' | 'system', meta?: string) => {
     const newEntry: TranscriptEntry = {
       id: Math.random().toString(36).substring(2, 9),
@@ -256,7 +351,53 @@ export default function IvrSimulatorPage() {
       meta,
     };
     setTranscripts((prev) => [...prev, newEntry]);
-  }, []);
+
+    // Native Web Speech TTS audio playback with robust voice selection & regional fallback
+    if (speaker === 'ivr' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const currentLang = languageRef.current || payload.language;
+      let targetLang = 'en-IN';
+      if (currentLang === 'hi') targetLang = 'hi-IN';
+      else if (currentLang === 'mr') targetLang = 'mr-IN';
+      else if (currentLang === 'kn') targetLang = 'kn-IN';
+
+      const utteranceText = (currentLang && currentLang !== 'en' && textHi) ? textHi : text;
+      const utterance = new SpeechSynthesisUtterance(utteranceText);
+
+      const voices = window.speechSynthesis.getVoices();
+      
+      // Look for exact voice match for targetLang (case-insensitive prefix/exact, e.g. "mr-IN", "mr_IN", "mr")
+      let selectedVoice = voices.find((v) => 
+        v.lang.toLowerCase() === targetLang.toLowerCase() || 
+        v.lang.toLowerCase().startsWith(targetLang.slice(0, 2).toLowerCase())
+      );
+
+      // CRITICAL FALLBACK: If mr-IN (Marathi) requested but no Marathi voice found,
+      // fallback to hi-IN (Hindi) so Devanagari script is pronounced correctly
+      let effectiveLang = targetLang;
+      if (!selectedVoice && targetLang === 'mr-IN') {
+        selectedVoice = voices.find((v) => 
+          v.lang.toLowerCase() === 'hi-in' || 
+          v.lang.toLowerCase().startsWith('hi')
+        );
+        effectiveLang = 'hi-IN';
+      }
+
+      // If Kannada voice not found, attempt kn prefix
+      if (!selectedVoice && targetLang === 'kn-IN') {
+        selectedVoice = voices.find((v) => v.lang.toLowerCase().startsWith('kn'));
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+      } else {
+        utterance.lang = effectiveLang;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [payload.language]);
 
   // Format seconds to mm:ss
   const formatTime = (seconds: number) => {
@@ -271,6 +412,7 @@ export default function IvrSimulatorPage() {
 
   // Start / Dial Call
   const handleStartCall = () => {
+    languageRef.current = null;
     setPayload({
       ...INITIAL_PAYLOAD,
       callStartedAt: new Date().toISOString(),
@@ -291,15 +433,18 @@ export default function IvrSimulatorPage() {
 
     addTranscript(
       'ivr',
-      'Welcome to National Disaster Emergency Helpline 112. For Hindi, press 1. For English, press 2.',
-      'राष्ट्रीय आपदा आपातकालीन हेल्पलाइन 112 में आपका स्वागत है। हिंदी के लिए 1 दबाएं। अंग्रेजी के लिए 2 दबाएं।',
+      getIvrPrompt('STEP_1_WELCOME', 'en'),
+      getIvrPrompt('STEP_1_WELCOME', 'hi'),
       'dtmf',
-      'Awaiting DTMF: 1 or 2'
+      'Awaiting DTMF: 1, 2, 3, 4 (or * to abort)'
     );
   };
 
   // Hangup / End Call
   const handleEndCall = useCallback((reason: string = 'User terminated call') => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setCurrentStep('CALL_ENDED');
     setPayload((prev) => ({
       ...prev,
@@ -320,57 +465,91 @@ export default function IvrSimulatorPage() {
     // Call Ended state: keypad is disabled
     if (currentStep === 'CALL_ENDED') return;
 
+    // Global Abort / Exit Option (* Key)
+    if (digit === '*') {
+      handleEndCall('Caller aborted via * key');
+      return;
+    }
+
     // STEP 1: LANGUAGE
     if (currentStep === 'STEP_1_LANGUAGE') {
       if (digit === '1') {
+        languageRef.current = 'hi';
         setPayload((prev) => ({ ...prev, language: 'hi' }));
         addTranscript('caller', 'Pressed DTMF [1] - Hindi selected', 'डीटीएमएफ [1] दबाया गया - हिंदी चयनित', 'dtmf');
         setCurrentStep('STEP_2_INTENT');
         addTranscript(
           'ivr',
-          'Emergency SOS Dispatch: If you or someone near you is stranded or in immediate danger, press 1 to confirm urgent rescue request.',
-          'आपातकालीन राहत: यदि आप या आपके आसपास कोई संकट में है, तो तत्काल बचाव अनुरोध के लिए 1 दबाएं।',
+          getIvrPrompt('STEP_2_INTENT', 'en'),
+          getIvrPrompt('STEP_2_INTENT', 'hi'),
           'dtmf',
           'Awaiting DTMF: 1'
         );
       } else if (digit === '2') {
+        languageRef.current = 'en';
         setPayload((prev) => ({ ...prev, language: 'en' }));
         addTranscript('caller', 'Pressed DTMF [2] - English selected', 'डीटीएमएफ [2] दबाया गया - अंग्रेजी चयनित', 'dtmf');
         setCurrentStep('STEP_2_INTENT');
         addTranscript(
           'ivr',
-          'Emergency SOS Dispatch: If you or someone near you is stranded or in immediate danger, press 1 to confirm urgent rescue request.',
-          'आपातकालीन राहत: यदि आप या आपके आसपास कोई संकट में है, तो तत्काल बचाव अनुरोध के लिए 1 दबाएं।',
+          getIvrPrompt('STEP_2_INTENT', 'en'),
+          getIvrPrompt('STEP_2_INTENT', 'en'),
+          'dtmf',
+          'Awaiting DTMF: 1'
+        );
+      } else if (digit === '3') {
+        languageRef.current = 'mr';
+        setPayload((prev) => ({ ...prev, language: 'mr' }));
+        addTranscript('caller', 'Pressed DTMF [3] - Marathi selected', 'डीटीएमएफ [3] दाबले - मराठी निवडली', 'dtmf');
+        setCurrentStep('STEP_2_INTENT');
+        addTranscript(
+          'ivr',
+          getIvrPrompt('STEP_2_INTENT', 'en'),
+          getIvrPrompt('STEP_2_INTENT', 'mr'),
+          'dtmf',
+          'Awaiting DTMF: 1'
+        );
+      } else if (digit === '4') {
+        languageRef.current = 'kn';
+        setPayload((prev) => ({ ...prev, language: 'kn' }));
+        addTranscript('caller', 'Pressed DTMF [4] - Kannada selected', 'ಡಿಟಿಎಂಎಫ್ [4] ಒತ್ತಲಾಗಿದೆ - ಕನ್ನಡ ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ', 'dtmf');
+        setCurrentStep('STEP_2_INTENT');
+        addTranscript(
+          'ivr',
+          getIvrPrompt('STEP_2_INTENT', 'en'),
+          getIvrPrompt('STEP_2_INTENT', 'kn'),
           'dtmf',
           'Awaiting DTMF: 1'
         );
       } else {
-        addTranscript('ivr', 'Invalid input. For Hindi press 1, for English press 2.', 'अमान्य इनपुट। हिंदी के लिए 1, अंग्रेजी के लिए 2 दबाएं।', 'dtmf');
+        addTranscript('ivr', 'Invalid input. For Hindi press 1, English 2, Marathi 3, Kannada 4. Press * to exit.', 'अमान्य इनपुट। हिंदीसाठी 1, English 2, Marathi 3, Kannada 4.', 'dtmf');
       }
       return;
     }
 
     // STEP 2: INTENT CONFIRMATION
     if (currentStep === 'STEP_2_INTENT') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '1') {
         setPayload((prev) => ({ ...prev, intentConfirmed: true }));
         addTranscript('caller', 'Pressed DTMF [1] - SOS Distress Confirmed', 'डीटीएमएफ [1] दबाया गया - आपातकालीन संकट की पुष्टि हुई', 'dtmf');
         setCurrentStep('STEP_3_NAME');
         addTranscript(
           'ivr',
-          'Please state your full name after the tone. Hold the "Hold to Speak" button on your keypad to record.',
-          'कृपया बीप के बाद अपना पूरा नाम बोलें। रिकॉर्ड करने के लिए "बोलने के लिए दबाएं" बटन दबाकर रखें।',
+          getIvrPrompt('STEP_3_NAME', 'en'),
+          getIvrPrompt('STEP_3_NAME', lang),
           'voice',
           'Awaiting Voice Capture'
         );
       } else {
-        addTranscript('ivr', 'Press 1 to confirm life-safety SOS request.', 'आपातकालीन सहायता की पुष्टि के लिए 1 दबाएं।', 'dtmf');
+        addTranscript('ivr', getIvrPrompt('STEP_2_INTENT', 'en'), getIvrPrompt('STEP_2_INTENT', lang), 'dtmf');
       }
       return;
     }
 
     // STEP 4: PAX COUNT (Digit buffer + '#')
     if (currentStep === 'STEP_4_PAX') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '#') {
         if (inputBuffer.trim().length > 0) {
           const count = parseInt(inputBuffer, 10);
@@ -381,17 +560,17 @@ export default function IvrSimulatorPage() {
             setCurrentStep('STEP_5_MEDICAL');
             addTranscript(
               'ivr',
-              'Is anyone critically injured or requiring immediate medical attention? Press 1 for Yes, Press 2 for No.',
-              'क्या किसी को तत्काल चिकित्सा या गंभीर चोट की सहायता चाहिए? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+              getIvrPrompt('STEP_5_MEDICAL', 'en'),
+              getIvrPrompt('STEP_5_MEDICAL', lang),
               'dtmf',
               'Awaiting DTMF: 1 or 2'
             );
           } else {
-            addTranscript('ivr', 'Invalid headcount. Please enter a valid number followed by #.', 'अमान्य संख्या। कृपया सही संख्या दर्ज कर # दबाएं।', 'dtmf');
+            addTranscript('ivr', getIvrPrompt('STEP_4_PAX', 'en'), getIvrPrompt('STEP_4_PAX', lang), 'dtmf');
             setInputBuffer('');
           }
         } else {
-          addTranscript('ivr', 'Please enter the number of stranded persons followed by # (e.g. 4#).', 'कृपया व्यक्तियों की संख्या दर्ज कर # दबाएं (उदा. 4#)।', 'dtmf');
+          addTranscript('ivr', getIvrPrompt('STEP_4_PAX', 'en'), getIvrPrompt('STEP_4_PAX', lang), 'dtmf');
         }
       } else if (digit >= '0' && digit <= '9') {
         if (inputBuffer.length < 3) {
@@ -403,6 +582,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 5: MEDICAL EMERGENCY
     if (currentStep === 'STEP_5_MEDICAL') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '1' || digit === '2') {
         const isMed = digit === '1';
         setPayload((prev) => ({ ...prev, medical: isMed }));
@@ -410,19 +590,20 @@ export default function IvrSimulatorPage() {
         setCurrentStep('STEP_6_INFANTS');
         addTranscript(
           'ivr',
-          'Are there any infants, toddlers, or small children under 5 years present? Press 1 for Yes, Press 2 for No.',
-          'क्या आपके समूह में 5 वर्ष से कम उम्र के शिशु या छोटे बच्चे हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+          getIvrPrompt('STEP_6_INFANTS', 'en'),
+          getIvrPrompt('STEP_6_INFANTS', lang),
           'dtmf',
           'Awaiting DTMF: 1 or 2'
         );
       } else {
-        addTranscript('ivr', 'For Medical emergency press 1, otherwise press 2.', 'चिकित्सा सहायता के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+        addTranscript('ivr', getIvrPrompt('STEP_5_MEDICAL', 'en'), getIvrPrompt('STEP_5_MEDICAL', lang), 'dtmf');
       }
       return;
     }
 
     // STEP 6: INFANTS PRESENT
     if (currentStep === 'STEP_6_INFANTS') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '1' || digit === '2') {
         const isInfants = digit === '1';
         setPayload((prev) => ({ ...prev, infants: isInfants }));
@@ -430,19 +611,20 @@ export default function IvrSimulatorPage() {
         setCurrentStep('STEP_7_ELDERLY');
         addTranscript(
           'ivr',
-          'Are there any elderly citizens or individuals with mobility disabilities present? Press 1 for Yes, Press 2 for No.',
-          'क्या समूह में वृद्ध नागरिक या चलने-फिरने में असमर्थ व्यक्ति हैं? हाँ के लिए 1, नहीं के लिए 2 दबाएं।',
+          getIvrPrompt('STEP_7_ELDERLY', 'en'),
+          getIvrPrompt('STEP_7_ELDERLY', lang),
           'dtmf',
           'Awaiting DTMF: 1 or 2'
         );
       } else {
-        addTranscript('ivr', 'Press 1 if infants are present, press 2 if none.', 'शिशुओं के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+        addTranscript('ivr', getIvrPrompt('STEP_6_INFANTS', 'en'), getIvrPrompt('STEP_6_INFANTS', lang), 'dtmf');
       }
       return;
     }
 
     // STEP 7: ELDERLY PRESENT
     if (currentStep === 'STEP_7_ELDERLY') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '1' || digit === '2') {
         const isElderly = digit === '1';
         setPayload((prev) => ({ ...prev, elderly: isElderly }));
@@ -450,26 +632,27 @@ export default function IvrSimulatorPage() {
         setCurrentStep('STEP_8_LANDMARK');
         addTranscript(
           'ivr',
-          'Please describe your exact landmark, road, building or nearby identifiable structure. Hold the "Hold to Speak" button to record.',
-          'कृपया अपना नजदीकी लैंडमार्क, स्कूल, मंदिर या भवन बताएं। बोलने के लिए "बोलने के लिए दबाएं" बटन दबाएं।',
+          getIvrPrompt('STEP_8_LANDMARK', 'en'),
+          getIvrPrompt('STEP_8_LANDMARK', lang),
           'voice',
           'Awaiting Voice Capture'
         );
       } else {
-        addTranscript('ivr', 'Press 1 if elderly are present, press 2 if none.', 'वृद्ध नागरिकों के लिए 1, अन्यथा 2 दबाएं।', 'dtmf');
+        addTranscript('ivr', getIvrPrompt('STEP_7_ELDERLY', 'en'), getIvrPrompt('STEP_7_ELDERLY', lang), 'dtmf');
       }
       return;
     }
 
     // STEP 9: OPTIONAL NOTE (Decision Step: 1=Record, 2=Skip)
     if (currentStep === 'STEP_9_OPTIONAL_NOTE') {
+      const lang = languageRef.current || payload.language || 'en';
       if (digit === '1') {
         addTranscript('caller', 'Pressed DTMF [1] - Recording optional voice note', 'डीटीएमएफ [1] - अतिरिक्त संदेश रिकॉर्ड कर रहे हैं', 'dtmf');
         setCurrentStep('STEP_9_RECORDING');
         addTranscript(
           'ivr',
-          'Please record your additional message now. Hold the "Hold to Speak" button to speak.',
-          'कृपया अपना अतिरिक्त संदेश बोलें। "बोलने के लिए दबाएं" बटन दबाकर रखें।',
+          getIvrPrompt('STEP_9_RECORDING', 'en'),
+          getIvrPrompt('STEP_9_RECORDING', lang),
           'voice',
           'Awaiting Voice Capture'
         );
@@ -477,7 +660,7 @@ export default function IvrSimulatorPage() {
         addTranscript('caller', 'Pressed DTMF [2] - Skipped optional voice note', 'डीटीएमएफ [2] - अतिरिक्त संदेश छोड़ा गया', 'dtmf');
         finalizeCall(null);
       } else {
-        addTranscript('ivr', 'Press 1 to record extra voice note, or press 2 to finalize and dispatch.', 'अतिरिक्त संदेश के लिए 1, कॉल समाप्त करने के लिए 2 दबाएं।', 'dtmf');
+        addTranscript('ivr', getIvrPrompt('STEP_9_OPTIONAL_NOTE', 'en'), getIvrPrompt('STEP_9_OPTIONAL_NOTE', lang), 'dtmf');
       }
       return;
     }
@@ -521,6 +704,7 @@ export default function IvrSimulatorPage() {
     const mockAudioId = `mock_audio_${Date.now()}_pcm16.wav`;
 
     if (currentStep === 'STEP_3_NAME') {
+      const lang = languageRef.current || payload.language || 'en';
       setPayload((prev) => ({ ...prev, nameAudio: mockAudioId }));
       addTranscript(
         'caller',
@@ -532,12 +716,13 @@ export default function IvrSimulatorPage() {
       setCurrentStep('STEP_4_PAX');
       addTranscript(
         'ivr',
-        'Enter total number of stranded persons needing rescue using the keypad, followed by the pound (#) key. (e.g. Press 4 then #).',
-        'कीपैड का उपयोग करके फंसे हुए कुल लोगों की संख्या दर्ज करें और अंत में हैश (#) दबाएं। (उदा. 4#)',
+        getIvrPrompt('STEP_4_PAX', 'en'),
+        getIvrPrompt('STEP_4_PAX', lang),
         'dtmf',
         'Awaiting Numeric DTMF + #'
       );
     } else if (currentStep === 'STEP_8_LANDMARK') {
+      const lang = languageRef.current || payload.language || 'en';
       setPayload((prev) => ({ ...prev, landmarkAudio: mockAudioId }));
       addTranscript(
         'caller',
@@ -549,8 +734,8 @@ export default function IvrSimulatorPage() {
       setCurrentStep('STEP_9_OPTIONAL_NOTE');
       addTranscript(
         'ivr',
-        'Do you want to record an additional voice message for the NDRF rescue team? Press 1 to record, or Press 2 to finalize and dispatch rescue.',
-        'क्या आप एनडीआरएफ बचाव दल के लिए कोई अतिरिक्त संदेश रिकॉर्ड करना चाहते हैं? रिकॉर्ड के लिए 1, कॉल समाप्त करने के लिए 2 दबाएं।',
+        getIvrPrompt('STEP_9_OPTIONAL_NOTE', 'en'),
+        getIvrPrompt('STEP_9_OPTIONAL_NOTE', lang),
         'dtmf',
         'Awaiting DTMF: 1 or 2'
       );
@@ -621,10 +806,11 @@ export default function IvrSimulatorPage() {
         'STT 97% Accuracy'
       );
 
+      const lang = languageRef.current || payload.language || 'en';
       addTranscript(
         'ivr',
         `Your emergency SOS request #${reportNum} has been registered with NDRF. Landmark: ${landmarkLogged}. Shelter Bearing: ${data.nearest_shelter?.distance || '0.2 km'} ${data.nearest_shelter?.cardinal || 'SW'}. Call ended.`,
-        `आपकी आपातकालीन सहायता दर्ज कर ली गई है। लैंडमार्क: ${landmarkLogged}। सहायता दल रवाना किया गया है। कॉल समाप्त।`,
+        getIvrPrompt('CALL_END_SUCCESS', lang),
         'system',
         'Dispatch Confirmed'
       );
@@ -637,10 +823,11 @@ export default function IvrSimulatorPage() {
         `सर्वर सूचना (${errMsg}): टेलीमेट्री आपातकालीन कतार में सुरक्षित।`,
         'system'
       );
+      const lang = languageRef.current || payload.language || 'en';
       addTranscript(
         'ivr',
         'Your emergency SOS request has been registered and queued for NDRF dispatch. Help is on the way. Call ended.',
-        'आपकी आपातकालीन सहायता दर्ज कर ली गई है। सहायता भेजी जा रही है। कॉल समाप्त।',
+        getIvrPrompt('CALL_END_SUCCESS', lang),
         'system',
         'Queued'
       );
@@ -678,6 +865,100 @@ export default function IvrSimulatorPage() {
   const activeStepNum = getActiveStepNumber();
   const isCallActive = currentStep !== 'IDLE' && currentStep !== 'CALL_ENDED';
   const isAudioCaptureActive = currentStep === 'STEP_3_NAME' || currentStep === 'STEP_8_LANDMARK' || currentStep === 'STEP_9_RECORDING';
+
+  // Physical Keyboard Listener (0-9, *, #, Enter, Backspace, Spacebar for Voice Capture)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is focused inside an editable input or textarea
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Ignore modifier combinations (Ctrl, Alt, Meta/Cmd)
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key;
+
+      // Handle DTMF digits 0-9
+      if (key >= '0' && key <= '9') {
+        e.preventDefault();
+        handleKeyPress(key);
+        return;
+      }
+
+      // Handle star / asterisk key (* or NumpadMultiply)
+      if (key === '*' || e.code === 'NumpadMultiply') {
+        e.preventDefault();
+        handleKeyPress('*');
+        return;
+      }
+
+      // Handle pound / hash key (# or Shift+3)
+      if (key === '#' || (e.shiftKey && key === '3')) {
+        e.preventDefault();
+        handleKeyPress('#');
+        return;
+      }
+
+      // Enter key (Dials when IDLE, or acts as '#' confirm key during active calls)
+      if (key === 'Enter') {
+        e.preventDefault();
+        if (currentStep === 'IDLE') {
+          handleStartCall();
+        } else if (currentStep !== 'CALL_ENDED' && !isProcessingStt) {
+          handleKeyPress('#');
+        }
+        return;
+      }
+
+      // Backspace key (removes last digit during PAX count input step)
+      if (key === 'Backspace' && currentStep === 'STEP_4_PAX') {
+        e.preventDefault();
+        setInputBuffer((prev) => prev.slice(0, -1));
+        return;
+      }
+
+      // Spacebar to hold-to-speak on audio capture steps
+      if (key === ' ' && !e.repeat && isAudioCaptureActive && !isRecording && !isProcessingStt) {
+        e.preventDefault();
+        startVoiceRecording();
+        return;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Release spacebar to finish recording
+      if (e.key === ' ' && isRecording) {
+        e.preventDefault();
+        stopVoiceRecording();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [
+    currentStep,
+    isProcessingStt,
+    isMuted,
+    inputBuffer,
+    payload,
+    isRecording,
+    isAudioCaptureActive,
+    handleKeyPress,
+    handleStartCall,
+    startVoiceRecording,
+    stopVoiceRecording,
+  ]);
 
   return (
     <div className="min-h-screen bg-[#F4F6F8] flex flex-col font-sans text-slate-900">
@@ -861,12 +1142,13 @@ export default function IvrSimulatorPage() {
                           <div className="text-slate-400 py-3 text-center">
                             <PhoneCall className="w-8 h-8 mx-auto text-emerald-400/60 mb-1" />
                             <p>Press &quot;Call 112&quot; or tap the green dial button below to start IVR.</p>
+                            <p className="text-[11px] text-amber-300/80 mt-1">Press the star key (*) at any time to cancel.</p>
                           </div>
                         )}
                         {currentStep === 'STEP_1_LANGUAGE' && (
                           <div>
-                            <p className="text-cyan-200">For Hindi Press 1 • For English Press 2</p>
-                            <p className="text-[11px] text-slate-400 mt-1">हिंदी के लिए 1 • अंग्रेजी के लिए 2 दबाएं</p>
+                            <p className="text-cyan-200 text-xs sm:text-sm">1=Hindi • 2=English • 3=Marathi • 4=Kannada</p>
+                            <p className="text-[11px] text-slate-400 mt-1">1: हिंदी | 2: Eng | 3: मराठी | 4: ಕನ್ನಡ (* to Abort)</p>
                           </div>
                         )}
                         {currentStep === 'STEP_2_INTENT' && (
@@ -1019,6 +1301,15 @@ export default function IvrSimulatorPage() {
                 })}
               </div>
 
+              {/* Keyboard Input Active Indicator */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <div className="flex items-center gap-1.5 text-cyan-400">
+                  <Keyboard className="w-3.5 h-3.5" />
+                  <span className="font-semibold text-slate-300">Keyboard Input:</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Keys 0-9 • * • # • Enter</span>
+              </div>
+
               {/* Call Controls Bar (Dial / Hangup / Reset) */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                 {currentStep === 'IDLE' ? (
@@ -1146,7 +1437,12 @@ export default function IvrSimulatorPage() {
                     
                     // Render captured summary for each step
                     let valueSummary: string | null = null;
-                    if (step.id === 1 && payload.language) valueSummary = payload.language === 'hi' ? 'Hindi (हिंदी)' : 'English';
+                    if (step.id === 1 && payload.language) {
+                      if (payload.language === 'hi') valueSummary = 'Hindi (हिंदी)';
+                      else if (payload.language === 'en') valueSummary = 'English';
+                      else if (payload.language === 'mr') valueSummary = 'Marathi (मराठी)';
+                      else if (payload.language === 'kn') valueSummary = 'Kannada (ಕನ್ನಡ)';
+                    }
                     if (step.id === 2 && payload.intentConfirmed) valueSummary = 'Confirmed (SOS)';
                     if (step.id === 3 && payload.nameAudio) {
                       valueSummary = backendResponse?.transcription?.name ? `"${backendResponse.transcription.name}"` : 'Recorded (Voice)';
