@@ -2,12 +2,13 @@
 
 import React, { useState, useRef } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { GovHeader } from '@/components/GovHeader';
 import { GovFooter } from '@/components/GovFooter';
 import { SOSForm } from '@/components/SOSForm';
 import { CompassDisplay } from '@/components/CompassDisplay';
 import type { SOSResponse } from '@/types/sos';
-import { AlertOctagon, PhoneCall, ShieldAlert, Radio } from 'lucide-react';
+import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
   // Page states: 'collapsed' (big centered button) | 'expanded' (in-place form) | 'submitted' (compass guidance)
@@ -57,11 +58,23 @@ export default function HomePage() {
         {viewState === 'collapsed' && (
           <div className="w-full flex flex-col items-center justify-center my-auto py-8">
             <div className="w-full max-w-lg text-center space-y-6">
-              {/* National Alert Context */}
-              <div className="bg-white border border-gray-300 rounded-sm p-3 shadow-sm flex items-center justify-center gap-2 text-xs font-semibold text-gray-700">
-                <Radio className="w-4 h-4 text-red-600 animate-pulse" />
-                <span>Pan-India Emergency Response 24x7 Activated (All States & UTs)</span>
-              </div>
+              {/* National Alert Context & Live News Link */}
+              <Link
+                href="/citizen/news-report"
+                className="bg-white hover:bg-red-50/60 border border-gray-300 hover:border-red-300 rounded-sm p-3 shadow-xs flex items-center justify-between gap-2 text-xs font-semibold text-gray-700 group transition-all"
+                title="View real-time disaster alerts, dam releases, and evacuation advisories"
+              >
+                <div className="flex items-center gap-2 text-left">
+                  <Radio className="w-4 h-4 text-red-600 animate-pulse flex-shrink-0" />
+                  <span className="group-hover:text-red-700 transition-colors">
+                    Pan-India Emergency Response Active • <span className="underline decoration-red-400 font-bold">Live News &amp; Bulletins</span>
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-[#0B3D6E] group-hover:text-red-600 flex items-center gap-0.5 flex-shrink-0">
+                  <span>View Feed</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </Link>
 
               {/* Big Centered Primary SOS Trigger */}
               <div className="relative">
@@ -81,8 +94,18 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {/* Direct News Report & Evacuation Advisories Link Button */}
+              <Link
+                href="/citizen/news-report"
+                className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-[#0B3D6E] hover:text-[#07284B] font-bold text-xs sm:text-sm px-4 py-2.5 rounded-sm border-2 border-[#0B3D6E] shadow-sm flex items-center justify-center gap-2 transition-all group"
+              >
+                <Radio className="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform flex-shrink-0" />
+                <span>OFFICIAL DISASTER BULLETINS &amp; NEWS / समाचार एवं अलर्ट</span>
+                <ArrowRight className="w-4 h-4 text-[#0B3D6E] group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+
               {/* Direct Telephone Fallback */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <a
                   href="tel:112"
                   className="w-full sm:w-auto bg-[#0B3D6E] hover:bg-[#07284B] text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-sm border border-blue-900 shadow flex items-center justify-center gap-2 transition-colors"

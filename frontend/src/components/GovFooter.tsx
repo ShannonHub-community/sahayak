@@ -36,6 +36,11 @@ export const GovFooter: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link href="/citizen/news-report" className="hover:text-[#FF9933] transition-colors">
+                  Live Alerts &amp; News Bulletins
+                </Link>
+              </li>
+              <li>
                 <Link href="/citizen/register" className="hover:text-[#FF9933] transition-colors">
                   Pre-Register Household
                 </Link>

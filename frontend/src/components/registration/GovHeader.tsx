@@ -211,7 +211,20 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Emergency SOS</span>
             </Link>
 
-            {/* 2. Citizen Registration Tab */}
+            {/* 2. Live Alerts & News Report Tab */}
+            <Link
+              href="/citizen/news-report"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
+                pathname === '/citizen/news-report' || pathname === '/citizen/updates'
+                  ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
+                  : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+              <span>📢 Live Alerts &amp; News</span>
+            </Link>
+
+            {/* 3. Citizen Registration Tab */}
             <Link
               href="/citizen/register"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
@@ -224,7 +237,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Pre-Register</span>
             </Link>
 
-            {/* 3. Offline BLE Chat */}
+            {/* 4. Offline BLE Chat */}
             <Link
               href="/citizen/ble"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -237,7 +250,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>📶 Offline Chat</span>
             </Link>
 
-            {/* 4. IVR Call Simulator */}
+            {/* 5. IVR Call Simulator */}
             <Link
               href="/citizen/ivr"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -325,6 +338,24 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                     <div>
                       <div>Emergency SOS / आपातकालीन सहायता</div>
                       <div className="text-[11px] font-normal text-gray-500">Live GPS distress &amp; shelter bearing</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
+
+                {/* Live Alerts & News Report */}
+                <Link
+                  href="/citizen/news-report"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
+                    pathname === '/citizen/news-report' || pathname === '/citizen/updates' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Radio className="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform animate-pulse" />
+                    <div>
+                      <div>📢 Live Alerts &amp; News / समाचार एवं अलर्ट</div>
+                      <div className="text-[11px] font-normal text-gray-500">Real-time dam releases, red alerts &amp; advisories</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />

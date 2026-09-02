@@ -57,6 +57,15 @@ export interface UsePublicAlertsReturn {
   refresh: () => Promise<void>;
 }
 
+interface RawAlertItem {
+  id?: string | number;
+  alert_id?: string | number;
+  title: string;
+  message: string;
+  severity?: string;
+  timestamp?: string;
+}
+
 export function usePublicAlerts(page = 1): UsePublicAlertsReturn {
   const [alerts, setAlerts] = useState<PublicAlert[]>(getCachedAlertsFromStorage);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -76,14 +85,32 @@ export function usePublicAlerts(page = 1): UsePublicAlertsReturn {
 
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
-      const res = await fetch(`${apiBase}/api/comms/public-feed?page=${page}`);
-      if (res.ok) {
-        const data: PublicAlert[] = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setAlerts(data);
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${apiBase}/api/comms/public-feed?page=${page}`);
+      } catch {
+        if (!apiBase) {
+          res = await fetch(`http://localhost:8000/api/comms/public-feed?page=${page}`).catch(() => null);
+        }
+      }
+
+      if (res && res.ok) {
+        const json = await res.json();
+        const rawAlerts: RawAlertItem[] = Array.isArray(json) ? json : (json?.alerts || []);
+        if (Array.isArray(rawAlerts) && rawAlerts.length > 0) {
+          const formattedAlerts: PublicAlert[] = rawAlerts.map((item: RawAlertItem) => ({
+            id: String(item.id || item.alert_id || `ALT-${Date.now()}`),
+            title: item.title,
+            message: item.message,
+            severity: (item.severity === 'critical' || item.severity === 'warning' || item.severity === 'info')
+              ? item.severity
+              : 'info',
+            timestamp: item.timestamp || new Date().toISOString(),
+          }));
+          setAlerts(formattedAlerts);
           if (typeof window !== 'undefined') {
             try {
-              localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(data));
+              localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(formattedAlerts));
             } catch {
               // ignore
             }
@@ -93,9 +120,9 @@ export function usePublicAlerts(page = 1): UsePublicAlertsReturn {
           return;
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.debug('Public alerts fetch error, fallback to cache:', err);
-      setError(err);
+      setError(err instanceof Error ? err : new Error(String(err)));
       setIsOfflineCached(true);
     } finally {
       setIsValidating(false);
@@ -104,7 +131,10 @@ export function usePublicAlerts(page = 1): UsePublicAlertsReturn {
   }, [page]);
 
   useEffect(() => {
-    fetchAlerts();
+    const timer = setTimeout(() => {
+      fetchAlerts();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchAlerts]);
 
   return {
