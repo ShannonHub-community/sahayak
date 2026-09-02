@@ -28,6 +28,7 @@ const MiniMap = dynamic<MiniMapProps>(
   }
 );
 import type { SOSLocation, SOSPayload, SOSResponse, CitizenProfile } from '@/types/sos';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import { getBrowserIdentifier, getBrowserSessionId } from '@/services/browserIdentifier';
 import { lookupCitizenProfile } from '@/services/autofill';
 import { getCachedGuide } from '@/services/offlineCache';
@@ -48,6 +49,15 @@ const NATIONAL_FALLBACK_LOCATION: SOSLocation = {
   isFallback: true,
 };
 
+const CRITICAL_MEDICAL_CONDITIONS = [
+  { value: '', label: 'None / कोई नहीं' },
+  { value: 'Mobility Issues', label: 'Mobility Issues / गतिशीलता समस्या' },
+  { value: 'Diabetic / Insulin Dependent', label: 'Diabetic / Insulin Dependent / मधुमेह (इंसुलिन)' },
+  { value: 'Requires Oxygen / Ventilator', label: 'Requires Oxygen / Ventilator / ऑक्सीजन / वेंटिलेटर आवश्यक' },
+  { value: 'Pregnancy', label: 'Pregnancy / गर्भावस्था' },
+  { value: 'Other', label: 'Other / अन्य' },
+];
+
 export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) => {
   // Citizen Identity & Recognition
   const [browserId, setBrowserId] = useState<string | null>(null);
@@ -60,14 +70,21 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   const [phone, setPhone] = useState<string>('');
   const [paxCount, setPaxCount] = useState<number>(1);
   const [medicalEmergency, setMedicalEmergency] = useState<boolean>(false);
+  const [medicalCondition, setMedicalCondition] = useState<string>('');
   const [includesInfants, setIncludesInfants] = useState<boolean>(false);
   const [includesElderly, setIncludesElderly] = useState<boolean>(false);
   const [landmark, setLandmark] = useState<string>('');
 
-  // Location State
-  const [currentLocation, setCurrentLocation] = useState<SOSLocation | null>(null);
-  const [isAcquiringLocation, setIsAcquiringLocation] = useState<boolean>(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  // Location State via Shared Hook
+  const {
+    location: gpsLocation,
+    setLocation: setCurrentLocation,
+    isAcquiring: isAcquiringLocation,
+    error: locationError,
+    acquireLocation,
+  } = useGeolocation(NATIONAL_FALLBACK_LOCATION);
+
+  const currentLocation = gpsLocation || NATIONAL_FALLBACK_LOCATION;
 
   // First Aid Offline Guide State
   const [cachedGuide, setCachedGuide] = useState<FirstAidGuideContent | null>(null);
@@ -98,43 +115,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
 
   // 2. Geolocation acquisition
   const acquireGPS = () => {
-    if (typeof window === 'undefined') return;
-
-    if (!('geolocation' in navigator)) {
-      setLocationError('Geolocation API not supported on this device. Using Pan-India fallback.');
-      setCurrentLocation(NATIONAL_FALLBACK_LOCATION);
-      return;
-    }
-
-    setIsAcquiringLocation(true);
-    setLocationError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCurrentLocation({
-          lat: Number(position.coords.latitude.toFixed(6)),
-          lng: Number(position.coords.longitude.toFixed(6)),
-          accuracy: position.coords.accuracy,
-          isFallback: false,
-        });
-        setIsAcquiringLocation(false);
-      },
-      (error) => {
-        console.warn('Geolocation error:', error);
-        let errorMsg = 'GPS signal unavailable. Using National fallback coordinates.';
-        if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = 'Location permission denied. Please allow GPS access or provide a landmark below.';
-        }
-        setLocationError(errorMsg);
-        setCurrentLocation(NATIONAL_FALLBACK_LOCATION);
-        setIsAcquiringLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000,
-      }
-    );
+    acquireLocation();
   };
 
   useEffect(() => {
@@ -172,6 +153,19 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
 
       if (profile.medical_conditions || (profile.long_term_diseases && profile.long_term_diseases.length > 0)) {
         setMedicalEmergency(true);
+        const conditionsStr = profile.medical_conditions || (profile.long_term_diseases ? profile.long_term_diseases.join(' ') : '');
+        const lower = conditionsStr.toLowerCase();
+        if (lower.includes('mobility') || lower.includes('wheelchair')) {
+          setMedicalCondition('Mobility Issues');
+        } else if (lower.includes('diabet') || lower.includes('insulin')) {
+          setMedicalCondition('Diabetic / Insulin Dependent');
+        } else if (lower.includes('oxygen') || lower.includes('ventilator') || lower.includes('asthma') || lower.includes('respiratory')) {
+          setMedicalCondition('Requires Oxygen / Ventilator');
+        } else if (lower.includes('pregnan')) {
+          setMedicalCondition('Pregnancy');
+        } else if (conditionsStr.trim()) {
+          setMedicalCondition('Other');
+        }
       }
 
       if (profile.age && profile.age >= 60) {
@@ -216,7 +210,8 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
       name: trimmedName,
       phone: phone.trim() ? phone.trim() : null,
       pax_count: paxCount,
-      medical_emergency: medicalEmergency,
+      medical_emergency: medicalEmergency || Boolean(medicalCondition),
+      medical_condition: medicalCondition.trim() ? medicalCondition.trim() : null,
       includes_infants: includesInfants,
       includes_elderly: includesElderly,
       location: {
@@ -472,6 +467,31 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
                 <span className="text-xs">Includes Elderly / वरिष्ठ</span>
               </label>
             </div>
+
+            {/* Critical Medical Needs Dropdown */}
+            <div className="mt-3">
+              <label htmlFor="sos-medical-condition" className="block text-xs font-bold text-gray-900 mb-1">
+                Critical Medical Needs (Optional) / विशिष्ट चिकित्सीय आवश्यकता:
+              </label>
+              <select
+                id="sos-medical-condition"
+                value={medicalCondition}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMedicalCondition(val);
+                  if (val) {
+                    setMedicalEmergency(true);
+                  }
+                }}
+                className="w-full h-10 px-3 text-xs text-slate-900 border-2 border-gray-400 focus:border-[#0B3D6E] rounded-sm bg-white cursor-pointer font-medium"
+              >
+                {CRITICAL_MEDICAL_CONDITIONS.map((cond) => (
+                  <option key={cond.value} value={cond.value}>
+                    {cond.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* First Aid Cached Guide inline preview or graceful fallback */}
@@ -520,6 +540,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
             onLocationChange={(loc: SOSLocation) => setCurrentLocation(loc)}
             onRefreshLocation={acquireGPS}
             isLoadingLocation={isAcquiringLocation}
+            locationError={locationError}
             className="mb-2"
           />
 

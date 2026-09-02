@@ -24,6 +24,7 @@ export interface SOSPayload {
   phone?: string | null;
   pax_count: number;
   medical_emergency: boolean;
+  medical_condition?: string | null;
   includes_infants: boolean;
   includes_elderly: boolean;
   location: {

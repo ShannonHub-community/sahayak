@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
-import { Crosshair, AlertCircle, CheckCircle2, RefreshCw, MapPin, WifiOff, Navigation } from 'lucide-react';
+import { Crosshair, AlertCircle, CheckCircle2, RefreshCw, MapPin, WifiOff, X } from 'lucide-react';
 import type { SOSLocation } from '@/types/sos';
+import { getRobustCoordinates } from '@/hooks/useGeolocation';
 
 export interface MiniMapProps {
   mode?: 'live' | 'pick';
@@ -9,6 +10,7 @@ export interface MiniMapProps {
   onLocationChange?: (loc: SOSLocation) => void;
   onRefreshLocation?: () => void;
   isLoadingLocation?: boolean;
+  locationError?: string | null;
   className?: string;
   label?: string;
 }
@@ -37,7 +39,7 @@ const MAP_STYLE = {
   ],
 };
 
-// National Center of India (Nagpur / Central fallback)
+// National Center of India (Nagpur overview for nationwide view before location is acquired)
 const DEFAULT_FALLBACK_COORDS = { lat: 20.5937, lng: 78.9629 };
 
 export const MiniMap: React.FC<MiniMapProps> = ({
@@ -46,6 +48,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   onLocationChange,
   onRefreshLocation,
   isLoadingLocation = false,
+  locationError = null,
   className = '',
   label,
 }) => {
@@ -55,7 +58,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isLocatingSelf, setIsLocatingSelf] = useState<boolean>(false);
+  const [internalLocationError, setInternalLocationError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  const activeLocationError = locationError || internalLocationError;
+  const isCurrentlyLocating = isLoadingLocation || isLocatingSelf;
 
   // Monitor network status
   useEffect(() => {
@@ -93,7 +100,8 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
         const initialLat = location?.lat ?? DEFAULT_FALLBACK_COORDS.lat;
         const initialLng = location?.lng ?? DEFAULT_FALLBACK_COORDS.lng;
-        const initialZoom = location && !location.isFallback ? 14 : 5;
+        // If unconfirmed fallback, use pan-India zoom 4.5; if resolved, zoom in to 14
+        const initialZoom = location && !location.isFallback ? 14 : 4.5;
 
         const map = new maplibregl.Map({
           container: mapContainerRef.current,
@@ -137,6 +145,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           if (mode === 'pick') {
             marker.on('dragend', () => {
               const lngLat = marker.getLngLat();
+              setInternalLocationError(null);
               if (onLocationChange) {
                 onLocationChange({
                   lat: Number(lngLat.lat.toFixed(6)),
@@ -151,11 +160,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           markerRef.current = marker;
         });
 
-
         // Click handler for mode="pick" (tap-to-pin)
         map.on('click', (e) => {
           if (mode === 'pick' && onLocationChange) {
             const { lng, lat } = e.lngLat;
+            setInternalLocationError(null);
             if (markerRef.current) {
               markerRef.current.setLngLat([lng, lat]);
             }
@@ -209,7 +218,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     }
 
     if (mapLoaded && mapRef.current) {
-      const targetZoom = location.isFallback ? 5 : 15;
+      const targetZoom = location.isFallback ? 4.5 : 15;
       mapRef.current.flyTo({
         center: [lng, lat],
         zoom: targetZoom,
@@ -230,36 +239,36 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     }
   }, [mode]);
 
-  // Helper to trigger GPS acquisition in pick mode
-  const handlePinCurrentLocation = () => {
+  // Helper to trigger GPS acquisition in pick mode using robust helper
+  const handlePinCurrentLocation = async () => {
     if (typeof window === 'undefined') return;
     if (onRefreshLocation) {
       onRefreshLocation();
       return;
     }
-    if (!('geolocation' in navigator)) return;
 
     setIsLocatingSelf(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocatingSelf(false);
-        const lat = Number(pos.coords.latitude.toFixed(6));
-        const lng = Number(pos.coords.longitude.toFixed(6));
-        if (onLocationChange) {
-          onLocationChange({
-            lat,
-            lng,
-            accuracy: pos.coords.accuracy,
-            isFallback: false,
-          });
-        }
-      },
-      (err) => {
-        console.warn('Geolocation pick error:', err);
-        setIsLocatingSelf(false);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    setInternalLocationError(null);
+
+    try {
+      const coords = await getRobustCoordinates();
+      if (onLocationChange) {
+        onLocationChange({
+          lat: coords.lat,
+          lng: coords.lng,
+          accuracy: coords.accuracy,
+          isFallback: false,
+        });
+      }
+      setInternalLocationError(null);
+    } catch (err: any) {
+      console.warn('Geolocation pick error:', err);
+      setInternalLocationError(
+        err.message || 'Unable to retrieve location. Please click on the map to pin your location.'
+      );
+    } finally {
+      setIsLocatingSelf(false);
+    }
   };
 
   const isMapOffline = !isOnline || Boolean(mapError);
@@ -281,6 +290,29 @@ export const MiniMap: React.FC<MiniMapProps> = ({
         </div>
       )}
 
+      {/* Visible Actionable Geolocation Error Banner */}
+      {activeLocationError && (
+        <div className="bg-amber-50 border-b-2 border-amber-400 p-2.5 sm:p-3 text-xs text-amber-950 flex items-start justify-between gap-2 animate-fadeIn">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="leading-snug">
+              <span className="font-bold">Location Notice: </span>
+              {activeLocationError}
+            </div>
+          </div>
+          {internalLocationError && (
+            <button
+              type="button"
+              onClick={() => setInternalLocationError(null)}
+              className="text-amber-800 hover:text-amber-950 p-0.5 rounded hover:bg-amber-100 flex-shrink-0"
+              title="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 1. OFFLINE VIEW: Raw GPS coordinates display when map cannot render */}
       {isMapOffline ? (
         <div className="w-full h-48 sm:h-56 bg-slate-900 text-white p-4 sm:p-5 flex flex-col justify-between select-none">
@@ -297,7 +329,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           </div>
 
           <div className="my-auto py-2 text-center">
-            {location ? (
+            {location && !location.isFallback ? (
               <div className="space-y-1">
                 <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-400 tracking-wider">
                   {location.lat.toFixed(4)}° N, {location.lng.toFixed(4)}° E
@@ -307,14 +339,13 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   <span>
                     Captured with ±{location.accuracy ? Math.round(location.accuracy) : 5}m device precision
                   </span>
-                  {location.isFallback && (
-                    <span className="text-amber-400 font-bold">(National Fallback)</span>
-                  )}
                 </div>
               </div>
             ) : (
-              <div className="text-sm font-mono text-slate-400">
-                Acquiring hardware GPS coordinates...
+              <div className="text-xs font-mono text-amber-300">
+                {isCurrentlyLocating
+                  ? 'Getting your location from GPS / Network...'
+                  : 'GPS location not locked. Tap below to acquire coordinates.'}
               </div>
             )}
           </div>
@@ -327,18 +358,18 @@ export const MiniMap: React.FC<MiniMapProps> = ({
             <button
               type="button"
               onClick={mode === 'live' ? onRefreshLocation : handlePinCurrentLocation}
-              disabled={isLoadingLocation || isLocatingSelf}
+              disabled={isCurrentlyLocating}
               className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-400/30 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
             >
-              {isLoadingLocation || isLocatingSelf ? (
+              {isCurrentlyLocating ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Polling GPS...</span>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                  <span>Getting your location...</span>
                 </>
               ) : (
                 <>
                   <Crosshair className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Re-acquire GPS</span>
+                  <span>Use Current Location</span>
                 </>
               )}
             </button>
@@ -368,18 +399,25 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           <div className="absolute bottom-2 left-2 right-2 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
             {/* Coordinates / Status Pill */}
             <div className="bg-white/95 backdrop-blur-none border border-gray-300 shadow-sm px-2.5 py-1 rounded text-[11px] font-mono pointer-events-auto flex items-center gap-1.5 text-gray-800">
-              {location?.isFallback ? (
+              {isCurrentlyLocating ? (
                 <>
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                  <span className="font-semibold text-amber-800">National Default (Nagpur)</span>
+                  <RefreshCw className="w-3.5 h-3.5 text-[#0B3D6E] animate-spin" />
+                  <span className="text-[#0B3D6E] font-semibold">Getting your location...</span>
+                </>
+              ) : location?.isFallback || !location ? (
+                <>
+                  <Crosshair className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                  <span className="font-semibold text-amber-800">
+                    {mode === 'pick' ? 'Tap map to pin location' : 'National overview'}
+                  </span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                   <span>
-                    {location ? `${location.lat.toFixed(4)}°N, ${location.lng.toFixed(4)}°E` : 'Tap map to pin'}
+                    {`${location.lat.toFixed(4)}°N, ${location.lng.toFixed(4)}°E`}
                   </span>
-                  {location?.accuracy && (
+                  {location.accuracy && (
                     <span className="text-[10px] text-gray-500 font-sans">
                       (±{Math.round(location.accuracy)}m)
                     </span>
@@ -393,14 +431,14 @@ export const MiniMap: React.FC<MiniMapProps> = ({
               <button
                 type="button"
                 onClick={onRefreshLocation}
-                disabled={isLoadingLocation}
+                disabled={isCurrentlyLocating}
                 className="pointer-events-auto bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-900 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
-                title="Re-acquire current GPS position"
+                title="Acquire current GPS position"
               >
-                {isLoadingLocation ? (
+                {isCurrentlyLocating ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Acquiring GPS...</span>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                    <span>Getting your location...</span>
                   </>
                 ) : (
                   <>
@@ -411,20 +449,19 @@ export const MiniMap: React.FC<MiniMapProps> = ({
               </button>
             )}
 
-            {/* Refinement 3: Prominent "Use Current Location" in mode="pick" matching live mode */}
             {mode === 'pick' && (
               <div className="flex items-center gap-2 pointer-events-auto">
                 <button
                   type="button"
                   onClick={handlePinCurrentLocation}
-                  disabled={isLocatingSelf || isLoadingLocation}
+                  disabled={isCurrentlyLocating}
                   className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-900 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
                   title="Auto-fill pin from device GPS location"
                 >
-                  {isLocatingSelf || isLoadingLocation ? (
+                  {isCurrentlyLocating ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
-                      <span>Acquiring GPS...</span>
+                      <span>Getting your location...</span>
                     </>
                   ) : (
                     <>
@@ -441,6 +478,3 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     </div>
   );
 };
-
-
-

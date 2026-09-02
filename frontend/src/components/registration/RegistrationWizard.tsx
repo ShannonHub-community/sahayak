@@ -21,6 +21,7 @@ import type {
   RegistrationResponse 
 } from '@/types/registration';
 import { submitRegistration } from '@/services/registration';
+import { getRobustCoordinates } from '@/hooks/useGeolocation';
 
 const STEPS = [
   { id: 1, title: 'Identity Verification', sub: 'Phone & Aadhaar' },
@@ -53,12 +54,35 @@ export const RegistrationWizard: React.FC = () => {
   const [age, setAge] = useState<number | ''>('');
   const [gender, setGender] = useState<string>('Male');
   const [homeLocation, setHomeLocation] = useState<CitizenLocation>(DEFAULT_COORDS);
+  const [isHomeLocationFallback, setIsHomeLocationFallback] = useState<boolean>(true);
   const [workLocation, setWorkLocation] = useState<CitizenLocation | null>(null);
+
+  // Auto-acquire background location on mount
+  React.useEffect(() => {
+    getRobustCoordinates()
+      .then((coords) => {
+        setHomeLocation({ lat: coords.lat, lng: coords.lng });
+        setIsHomeLocationFallback(false);
+      })
+      .catch((err) => {
+        // User can manually pin in Step 2 or click "Use Current Location"
+        console.info('Auto-detect skipped for registration:', err?.message);
+      });
+  }, []);
 
   // Step 3
   const [bloodGroup, setBloodGroup] = useState<string>('B+');
   const [longTermDiseases, setLongTermDiseases] = useState<string[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+
+  // Handle Aadhaar Mock Profile Fetch
+  const handleAadhaarProfileFetched = (profile: { name: string; age: number; gender: string }) => {
+    setName(profile.name);
+    setAge(profile.age);
+    setGender(profile.gender);
+    setIsAadhaarVerified(true);
+    setStepError(null);
+  };
 
   // Validation before proceeding
   const handleNextStep = () => {
@@ -66,12 +90,12 @@ export const RegistrationWizard: React.FC = () => {
 
     if (currentStep === 1) {
       const cleanPhone = phone.replace(/\D/g, '');
-      if (cleanPhone.length !== 10) {
-        setStepError('Please enter a valid 10-digit mobile number.');
+      if (cleanPhone.length !== 10 && !isAadhaarVerified) {
+        setStepError('Please enter a valid 10-digit mobile number or verify Aadhaar.');
         return;
       }
-      if (!isPhoneVerified) {
-        setStepError('Please verify your mobile number with the OTP before continuing.');
+      if (!isPhoneVerified && !isAadhaarVerified) {
+        setStepError('Please verify your mobile number with the OTP or verify Aadhaar before continuing.');
         return;
       }
       setCurrentStep(2);
@@ -84,7 +108,8 @@ export const RegistrationWizard: React.FC = () => {
         setStepError('Please enter your full legal name.');
         return;
       }
-      if (age === '' || age <= 0 || age > 120) {
+      const numAge = typeof age === 'number' ? age : parseInt(String(age), 10);
+      if (isNaN(numAge) || numAge <= 0 || numAge > 120) {
         setStepError('Please enter a valid age between 1 and 120.');
         return;
       }
@@ -149,6 +174,16 @@ export const RegistrationWizard: React.FC = () => {
     }
   };
 
+  // Form Submit Wrapper (guards Steps 1 & 2 from premature submission on Enter key)
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentStep === 3) {
+      handleFinalSubmit(e);
+    } else {
+      handleNextStep();
+    }
+  };
+
   // Build full payload for summary in confirmation step
   const finalPayload: CitizenRegistrationPayload = {
     phone: phone.replace(/\D/g, ''),
@@ -185,7 +220,7 @@ export const RegistrationWizard: React.FC = () => {
           </div>
         </div>
 
-        {/* Step Indicator Tabs */}
+        {/* Step Indicator Tabs (Interactive) */}
         {currentStep <= 3 && (
           <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-blue-800">
             {STEPS.map((step) => {
@@ -193,14 +228,20 @@ export const RegistrationWizard: React.FC = () => {
               const isDone = currentStep > step.id;
 
               return (
-                <div
+                <button
+                  type="button"
                   key={step.id}
-                  className={`p-2 rounded-sm border transition-colors flex items-center gap-2 ${
+                  onClick={() => {
+                    setStepError(null);
+                    setCurrentStep(step.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`p-2 rounded-sm border transition-colors flex items-center gap-2 text-left cursor-pointer ${
                     isCurrent
                       ? 'bg-white text-[#0B3D6E] border-white font-bold shadow-sm'
                       : isDone
-                      ? 'bg-blue-900/60 text-blue-100 border-blue-700'
-                      : 'bg-blue-950/40 text-blue-300 border-blue-900/60'
+                      ? 'bg-blue-900/60 text-blue-100 border-blue-700 hover:bg-blue-800/80'
+                      : 'bg-blue-950/40 text-blue-300 border-blue-900/60 hover:bg-blue-900/50'
                   }`}
                 >
                   <div
@@ -218,7 +259,7 @@ export const RegistrationWizard: React.FC = () => {
                     <div className="text-[11px] leading-tight truncate">{step.title}</div>
                     <div className="text-[10px] opacity-80 leading-tight truncate">{step.sub}</div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -226,7 +267,7 @@ export const RegistrationWizard: React.FC = () => {
       </div>
 
       {/* Main Wizard Step Content Form */}
-      <form onSubmit={handleFinalSubmit} className="p-4 sm:p-6 space-y-6">
+      <form onSubmit={handleFormSubmit} className="p-4 sm:p-6 space-y-6">
         {stepError && (
           <div className="bg-red-50 border-2 border-red-600 p-3 rounded-sm text-xs text-red-900 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -250,6 +291,7 @@ export const RegistrationWizard: React.FC = () => {
             onAadhaarVerifiedChange={setIsAadhaarVerified}
             bluetoothEnabled={bluetoothEnabled}
             onBluetoothEnabledChange={setBluetoothEnabled}
+            onProfileFetched={handleAadhaarProfileFetched}
           />
         )}
 
@@ -263,7 +305,11 @@ export const RegistrationWizard: React.FC = () => {
             gender={gender}
             onGenderChange={setGender}
             homeLocation={homeLocation}
-            onHomeLocationChange={setHomeLocation}
+            onHomeLocationChange={(loc) => {
+              setHomeLocation(loc);
+              setIsHomeLocationFallback(false);
+            }}
+            isHomeLocationFallback={isHomeLocationFallback}
             workLocation={workLocation}
             onWorkLocationChange={setWorkLocation}
           />

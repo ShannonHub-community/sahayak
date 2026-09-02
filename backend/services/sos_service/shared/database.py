@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sos_reports (
     phone             TEXT,
     pax_count         INTEGER,
     medical_emergency INTEGER NOT NULL DEFAULT 0,
+    medical_condition TEXT,
     includes_infants  INTEGER NOT NULL DEFAULT 0,
     includes_elderly  INTEGER NOT NULL DEFAULT 0,
     lat               REAL,
@@ -33,6 +34,11 @@ CREATE TABLE IF NOT EXISTS sos_reports (
 
 def _init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(_SCHEMA)
+    # Automatic column migration for existing databases
+    try:
+        conn.execute("ALTER TABLE sos_reports ADD COLUMN medical_condition TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 

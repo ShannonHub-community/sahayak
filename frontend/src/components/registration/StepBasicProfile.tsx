@@ -28,6 +28,7 @@ interface StepBasicProfileProps {
   onGenderChange: (val: string) => void;
   homeLocation: CitizenLocation;
   onHomeLocationChange: (loc: CitizenLocation) => void;
+  isHomeLocationFallback?: boolean;
   workLocation: CitizenLocation | null;
   onWorkLocationChange: (loc: CitizenLocation | null) => void;
   error?: string | null;
@@ -42,6 +43,7 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
   onGenderChange,
   homeLocation,
   onHomeLocationChange,
+  isHomeLocationFallback = false,
   workLocation,
   onWorkLocationChange,
   error,
@@ -52,8 +54,8 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
   const homeSosLocation: SOSLocation = {
     lat: homeLocation.lat,
     lng: homeLocation.lng,
-    accuracy: 5,
-    isFallback: false,
+    accuracy: isHomeLocationFallback ? undefined : 5,
+    isFallback: isHomeLocationFallback,
   };
 
   const workSosLocation: SOSLocation | null = workLocation

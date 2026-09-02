@@ -11,7 +11,6 @@ import {
   Info
 } from 'lucide-react';
 import { sendOtp, verifyOtp } from '@/services/otp';
-import { verifyAadhaarMock } from '@/services/aadhaar';
 
 interface StepIdentityProps {
   phone: string;
@@ -24,8 +23,15 @@ interface StepIdentityProps {
   onAadhaarVerifiedChange: (val: boolean) => void;
   bluetoothEnabled: boolean;
   onBluetoothEnabledChange: (val: boolean) => void;
+  onProfileFetched?: (profile: { name: string; age: number; gender: string }) => void;
   error?: string | null;
 }
+
+export const MOCK_AADHAAR_PROFILES = [
+  { name: 'Ganesh Kakaso Gorad', age: 19, gender: 'Male' },
+  { name: 'Amruta Sameer Dhepe', age: 19, gender: 'Female' },
+  { name: 'Vikram Singh', age: 34, gender: 'Male' },
+];
 
 export const StepIdentity: React.FC<StepIdentityProps> = ({
   phone,
@@ -38,6 +44,7 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
   onAadhaarVerifiedChange,
   bluetoothEnabled,
   onBluetoothEnabledChange,
+  onProfileFetched,
   error,
 }) => {
   // OTP Local State
@@ -51,9 +58,8 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
   const [demoOtpHint, setDemoOtpHint] = useState<string | null>(null);
 
   // Aadhaar Local State
-  const [aadhaarVerifying, setAadhaarVerifying] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [aadhaarError, setAadhaarError] = useState<string | null>(null);
-  const [aadhaarSuccessMessage, setAadhaarSuccessMessage] = useState<string | null>(null);
 
   // Bluetooth Permission Local State
   const [btStatusText, setBtStatusText] = useState<string>(
@@ -110,31 +116,25 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
     }
   };
 
-  // Verify Aadhaar Mock
-  const handleVerifyAadhaar = async () => {
+  // Mock Aadhaar Fetcher
+  const handleMockAadhaarFetch = () => {
     setAadhaarError(null);
-    setAadhaarSuccessMessage(null);
-    const cleanAadhaar = aadhaar.replace(/\D/g, '');
-    if (cleanAadhaar.length !== 12) {
-      setAadhaarError('Aadhaar must be exactly 12 digits');
-      return;
+    if (!aadhaar.trim()) {
+      onAadhaarChange('2345 6789 0123');
     }
 
-    setAadhaarVerifying(true);
-    try {
-      const res = await verifyAadhaarMock(cleanAadhaar);
-      if (res.verified) {
-        onAadhaarVerifiedChange(true);
-        setAadhaarSuccessMessage(`${res.message} [Ref: ${res.referenceId}]`);
-        setAadhaarError(null);
-      } else {
-        setAadhaarError(res.message);
+    setIsFetching(true);
+    setTimeout(() => {
+      // Randomly pick one of the 3 mock data profiles
+      const randomIndex = Math.floor(Math.random() * MOCK_AADHAAR_PROFILES.length);
+      const selectedProfile = MOCK_AADHAAR_PROFILES[randomIndex];
+
+      onAadhaarVerifiedChange(true);
+      if (onProfileFetched) {
+        onProfileFetched(selectedProfile);
       }
-    } catch (err: any) {
-      setAadhaarError(err.message || 'Aadhaar verification failed');
-    } finally {
-      setAadhaarVerifying(false);
-    }
+      setIsFetching(false);
+    }, 1500);
   };
 
   // Request Bluetooth Permission
@@ -272,7 +272,7 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
                   value={otpValue}
                   onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
                   placeholder="123456"
-                  className="w-full sm:w-44 px-3 py-2 text-sm font-mono text-center tracking-widest border-2 border-gray-400 focus:border-[#0B3D6E] rounded-sm bg-white"
+                  className="w-full sm:w-44 px-3 py-2 text-sm font-mono text-center tracking-widest border-2 border-gray-400 focus:border-[#0B3D6E] rounded-sm bg-white text-slate-900"
                 />
                 <button
                   type="button"
@@ -352,21 +352,31 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
               className="flex-1 px-3 py-2 text-sm border-2 border-gray-300 focus:border-[#0B3D6E] rounded-sm text-gray-900 font-mono disabled:bg-gray-100"
             />
 
-            {!isAadhaarVerified && (
+            {!isAadhaarVerified ? (
               <button
                 type="button"
-                onClick={handleVerifyAadhaar}
-                disabled={aadhaarVerifying || aadhaar.replace(/\D/g, '').length !== 12}
-                className="bg-[#0B3D6E] hover:bg-[#07284B] text-white text-xs font-semibold px-4 py-2 rounded-sm border border-blue-900 shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                onClick={handleMockAadhaarFetch}
+                disabled={isFetching}
+                className="mt-2 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs rounded-sm disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {aadhaarVerifying ? (
+                {isFetching ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Validating UIDAI...</span>
+                    <span>Fetching...</span>
                   </>
                 ) : (
-                  <span>Verify Demo Aadhaar</span>
+                  <span>Verify &amp; Fetch Details</span>
                 )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onAadhaarVerifiedChange(false);
+                }}
+                className="mt-2 sm:mt-0 bg-gray-100 hover:bg-gray-200 text-[#0B3D6E] text-xs font-semibold px-3 py-1.5 rounded-sm border border-gray-300 shadow-xs cursor-pointer"
+              >
+                Re-fetch
               </button>
             )}
           </div>
@@ -378,10 +388,10 @@ export const StepIdentity: React.FC<StepIdentityProps> = ({
             </p>
           )}
 
-          {aadhaarSuccessMessage && (
-            <p className="text-xs text-emerald-700 font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {aadhaarSuccessMessage}
+          {isAadhaarVerified && (
+            <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+              <span>Identity verified. Data fetched successfully.</span>
             </p>
           )}
         </div>

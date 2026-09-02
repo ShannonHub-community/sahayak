@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Bot,
   ShieldCheck,
@@ -572,7 +574,23 @@ function ChatInterface() {
                   : "bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm"
               }`}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              {msg.role === "ai" ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc pl-4 space-y-0.5 mb-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-4 space-y-0.5 mb-1">{children}</ol>,
+                    li: ({ children }) => <li>{children}</li>,
+                    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                    code: ({ children }) => <code className="bg-slate-100 px-1 rounded text-[10px] font-mono">{children}</code>,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              )}
               <div
                 className={`text-[9px] mt-1 font-mono ${
                   msg.role === "user" ? "text-slate-300 text-right" : "text-slate-400 text-left"

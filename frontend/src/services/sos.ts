@@ -9,7 +9,11 @@ const EMERGENCY_SMS_RECIPIENT = '112';
  */
 export function formatOfflineSMS(payload: SOSPayload): string {
   const flags: string[] = [];
-  if (payload.medical_emergency) flags.push('MED');
+  if (payload.medical_condition) {
+    flags.push(`MED:${payload.medical_condition}`);
+  } else if (payload.medical_emergency) {
+    flags.push('MED');
+  }
   if (payload.includes_infants) flags.push('INF');
   if (payload.includes_elderly) flags.push('ELD');
 

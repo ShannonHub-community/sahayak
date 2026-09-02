@@ -272,7 +272,7 @@ export const PublicDonationPortal = () => {
                     placeholder="e.g. Tata Motors CSR / Reliance Foundation / Helping Hands"
                     value={donor}
                     onChange={(e) => setDonor(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
@@ -357,7 +357,7 @@ export const PublicDonationPortal = () => {
                     placeholder="Contact Lead Name"
                     value={contactPerson}
                     onChange={(e) => setContactPerson(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
@@ -370,7 +370,7 @@ export const PublicDonationPortal = () => {
                     placeholder="+91 98000 00000"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -384,7 +384,7 @@ export const PublicDonationPortal = () => {
                   placeholder="Provide specifications, packaging details, or transport readiness..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 

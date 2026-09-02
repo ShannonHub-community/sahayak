@@ -54,9 +54,9 @@ def submit_sos(req: SOSSubmitRequest) -> dict:
         db.execute(
             """INSERT INTO sos_reports (
                 report_id, citizen_id, name, phone, pax_count,
-                medical_emergency, includes_infants, includes_elderly,
+                medical_emergency, medical_condition, includes_infants, includes_elderly,
                 lat, lng, landmark, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received')""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received')""",
             (
                 report_id,
                 req.citizen_id,
@@ -64,6 +64,7 @@ def submit_sos(req: SOSSubmitRequest) -> dict:
                 req.phone,
                 req.pax_count,
                 int(req.medical_emergency),
+                req.medical_condition,
                 int(req.includes_infants),
                 int(req.includes_elderly),
                 req.location.lat,

@@ -19,6 +19,7 @@ class SOSSubmitRequest(BaseModel):
     phone: Optional[str] = None
     pax_count: int = Field(..., ge=1)
     medical_emergency: bool = False
+    medical_condition: Optional[str] = None
     includes_infants: bool = False
     includes_elderly: bool = False
     location: SOSLocationIn

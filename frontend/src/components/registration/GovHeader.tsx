@@ -16,9 +16,7 @@ import {
   CheckCircle2, 
   ChevronRight,
   ShieldCheck,
-  Radio,
-  BookOpen,
-  LayoutDashboard
+  Radio
 } from 'lucide-react';
 import { hasOfflineGuides } from '@/services/offlineCache';
 import { getBrowserIdentifier } from '@/services/browserIdentifier';
@@ -200,20 +198,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
           className="bg-[#0B3D6E] border-t border-blue-900/60 px-2 sm:px-6 flex items-center overflow-x-auto no-scrollbar justify-between"
         >
           <div className="flex items-center space-x-1 sm:space-x-2 py-1">
-            {/* 1. Gateway Home */}
-            <Link
-              href="/"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
-                pathname === '/'
-                  ? 'bg-[#07284B] text-white font-bold border-b-2 border-[#FF9933]'
-                  : 'text-blue-100 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5 text-amber-300" />
-              <span>Gateway</span>
-            </Link>
-
-            {/* 2. SOS Emergency Tab */}
+            {/* 1. SOS Emergency Tab */}
             <Link
               href="/citizen/sos"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
@@ -226,7 +211,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Emergency SOS</span>
             </Link>
 
-            {/* 3. Citizen Registration Tab */}
+            {/* 2. Citizen Registration Tab */}
             <Link
               href="/citizen/register"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
@@ -239,20 +224,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Pre-Register</span>
             </Link>
 
-            {/* 4. Public Comms */}
-            <Link
-              href="/admin/public-comms"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
-                pathname === '/admin/public-comms'
-                  ? 'bg-[#07284B] text-white font-bold border-b-2 border-[#FF9933]'
-                  : 'text-blue-100 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>Public Comms</span>
-            </Link>
-
-            {/* 5. Offline BLE Chat */}
+            {/* 3. Offline BLE Chat */}
             <Link
               href="/citizen/ble"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -265,7 +237,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>📶 Offline Chat</span>
             </Link>
 
-            {/* 6. IVR Call Simulator */}
+            {/* 4. IVR Call Simulator */}
             <Link
               href="/citizen/ivr"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -276,16 +248,6 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
             >
               <PhoneCall className="w-3.5 h-3.5 text-amber-300" />
               <span>📞 IVR Call Simulator</span>
-            </Link>
-          </div>
-
-          <div className="hidden sm:flex items-center">
-            <Link
-              href="/admin/twin"
-              className="flex items-center gap-1 text-xs text-blue-200 hover:text-white bg-blue-950/70 hover:bg-blue-900 px-2.5 py-1 rounded border border-blue-700/60 font-semibold transition-colors"
-            >
-              <LayoutDashboard className="w-3 h-3 text-amber-300" />
-              <span>EOC Admin</span>
             </Link>
           </div>
         </nav>
@@ -349,24 +311,6 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                 <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-2">
                   Portal Navigation
                 </div>
-
-                {/* Gateway */}
-                <Link
-                  href="/"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
-                    pathname === '/' ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Shield className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
-                    <div>
-                      <div>Unified Gateway / मुख्य द्वार</div>
-                      <div className="text-[11px] font-normal text-gray-500">Citizen & Admin landing console</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </Link>
 
                 {/* SOS */}
                 <Link
@@ -439,24 +383,6 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                     <div>
                       <div>📞 IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
                       <div className="text-[11px] font-normal text-gray-500">Simulated 9-step non-smartphone intake flow</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </Link>
-
-                {/* EOC Command Center */}
-                <Link
-                  href="/admin/twin"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
-                    pathname === '/admin/twin' || pathname.startsWith('/admin') ? 'bg-blue-50 text-[#0B3D6E]' : 'hover:bg-gray-100 text-gray-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <LayoutDashboard className="w-4 h-4 text-[#0B3D6E] group-hover:scale-110 transition-transform" />
-                    <div>
-                      <div>EOC Command Center (Admin)</div>
-                      <div className="text-[11px] font-normal text-gray-500">Digital Twin &amp; AI Decision Console</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
