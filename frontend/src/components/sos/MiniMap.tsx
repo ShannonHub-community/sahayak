@@ -239,36 +239,54 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     }
   }, [mode]);
 
-  // Helper to trigger GPS acquisition in pick mode using robust helper
-  const handlePinCurrentLocation = async () => {
+  // Helper to trigger GPS acquisition in pick mode
+  const handlePinCurrentLocation = () => {
     if (typeof window === 'undefined') return;
     if (onRefreshLocation) {
       onRefreshLocation();
       return;
     }
 
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
     setIsLocatingSelf(true);
     setInternalLocationError(null);
 
-    try {
-      const coords = await getRobustCoordinates();
-      if (onLocationChange) {
-        onLocationChange({
-          lat: coords.lat,
-          lng: coords.lng,
-          accuracy: coords.accuracy,
-          isFallback: false,
-        });
-      }
-      setInternalLocationError(null);
-    } catch (err: any) {
-      console.warn('Geolocation pick error:', err);
-      setInternalLocationError(
-        err.message || 'Unable to retrieve location. Please click on the map to pin your location.'
-      );
-    } finally {
-      setIsLocatingSelf(false);
-    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocatingSelf(false);
+        if (onLocationChange) {
+          onLocationChange({
+            lat: Number(position.coords.latitude.toFixed(6)),
+            lng: Number(position.coords.longitude.toFixed(6)),
+            accuracy: position.coords.accuracy,
+            isFallback: false,
+          });
+        }
+        setInternalLocationError(null);
+      },
+      (error) => {
+        setIsLocatingSelf(false);
+        let errorMsg = 'An unknown error occurred while fetching location.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = 'Location permission denied. Please enable it in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMsg = 'The request to get user location timed out.';
+            break;
+        }
+        alert(errorMsg);
+        setInternalLocationError(errorMsg);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
   };
 
   const isMapOffline = !isOnline || Boolean(mapError);

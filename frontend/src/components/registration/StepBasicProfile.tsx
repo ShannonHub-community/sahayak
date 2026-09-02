@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, MapPin, Briefcase, Plus, X, Info, AlertCircle } from 'lucide-react';
+import { User, MapPin, Briefcase, Plus, X, Info, AlertCircle, Crosshair } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { CitizenLocation } from '@/types/registration';
 import type { SOSLocation } from '@/types/sos';
@@ -49,6 +49,46 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
   error,
 }) => {
   const [showWorkLocation, setShowWorkLocation] = useState<boolean>(Boolean(workLocation));
+  const [isFetchingLocation, setIsFetchingLocation] = useState<boolean>(false);
+
+  const handleFetchLocation = () => {
+    if (typeof window === 'undefined') return;
+
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsFetchingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsFetchingLocation(false);
+        onHomeLocationChange({
+          lat: Number(position.coords.latitude.toFixed(6)),
+          lng: Number(position.coords.longitude.toFixed(6)),
+        });
+      },
+      (error) => {
+        setIsFetchingLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert('Location permission denied. Please enable it in your browser settings.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            alert('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            alert('The request to get user location timed out.');
+            break;
+          default:
+            alert('An unknown error occurred while fetching location.');
+            break;
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
 
   // Convert CitizenLocation to SOSLocation format for MiniMap
   const homeSosLocation: SOSLocation = {
@@ -180,16 +220,28 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
 
       {/* SECTION 2: Home Location Pinning */}
       <div className="border border-gray-300 bg-white p-4 sm:p-5 rounded-sm space-y-3">
-        <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-2 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-red-600" />
             <h3 className="text-sm font-bold text-gray-900 uppercase">
               2.2 Home / Primary Residence Location / निवास स्थान <span className="text-red-600">*</span>
             </h3>
           </div>
-          <span className="text-[11px] font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-            {homeLocation.lat.toFixed(4)}°N, {homeLocation.lng.toFixed(4)}°E
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleFetchLocation}
+              disabled={isFetchingLocation}
+              className="text-xs font-semibold text-[#0B3D6E] hover:text-blue-900 flex items-center gap-1.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-sm transition-colors disabled:opacity-50 cursor-pointer"
+              title="Detect current GPS location"
+            >
+              <Crosshair className={`w-3.5 h-3.5 text-[#0B3D6E] ${isFetchingLocation ? 'animate-spin' : ''}`} />
+              <span>{isFetchingLocation ? 'Fetching Location...' : 'Use Current Location'}</span>
+            </button>
+            <span className="text-[11px] font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+              {homeLocation.lat.toFixed(4)}°N, {homeLocation.lng.toFixed(4)}°E
+            </span>
+          </div>
         </div>
 
         <p className="text-xs text-gray-600">
@@ -202,6 +254,8 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
           onLocationChange={(loc) => {
             onHomeLocationChange({ lat: loc.lat, lng: loc.lng });
           }}
+          onRefreshLocation={handleFetchLocation}
+          isLoadingLocation={isFetchingLocation}
           label="Home Residence (Tap to Reposition Pin)"
         />
       </div>

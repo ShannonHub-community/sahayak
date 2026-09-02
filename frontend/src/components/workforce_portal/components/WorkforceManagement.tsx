@@ -110,7 +110,11 @@ const MOCK_TEAMS: RescueTeam[] = [
   },
 ];
 
-export default function WorkforceManagement() {
+interface WorkforceManagementProps {
+  onSelectOfficer?: (officer: any) => void;
+}
+
+export default function WorkforceManagement({ onSelectOfficer }: WorkforceManagementProps = {}) {
   const [viewMode, setViewMode] = useState<"CARD" | "TABLE">("CARD");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -206,7 +210,35 @@ export default function WorkforceManagement() {
                       <h3 className="font-bold text-sm text-[#1F3A5F]">{team.name}</h3>
                       <span className="font-mono text-[10px] text-slate-500 font-semibold">{team.id}</span>
                     </div>
-                    <p className="text-xs text-slate-600 font-medium">Commander: {team.leader}</p>
+                    <p className="text-xs text-slate-600 font-medium">
+                      Commander:{" "}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSelectOfficer?.({
+                            id: `OFF-${team.id}`,
+                            name: team.leader,
+                            role: `${team.name} Commander`,
+                            sector: team.currentLocation,
+                            status: team.status === "On Mission" ? "On Field" : team.status,
+                            phone: "+91 98201 44521",
+                            assignmentHistory: [
+                              {
+                                id: "AH-1",
+                                taskName: team.currentMission || "Active Deployment",
+                                sector: team.currentLocation,
+                                status: "In Progress",
+                                timestamp: "Today, 08:00 IST",
+                              },
+                            ],
+                          })
+                        }
+                        className="text-[#1565C0] hover:underline font-bold"
+                        title="Click to inspect Commander profile"
+                      >
+                        {team.leader} →
+                      </button>
+                    </p>
                   </div>
                 </div>
 
@@ -290,7 +322,34 @@ export default function WorkforceManagement() {
                 <tr key={team.id}>
                   <td className="px-3.5 py-2.5 font-mono font-semibold text-[#1F3A5F]">{team.id}</td>
                   <td className="px-3.5 py-2.5 font-bold text-slate-900">{team.name}</td>
-                  <td className="px-3.5 py-2.5 text-slate-700">{team.leader}</td>
+                  <td className="px-3.5 py-2.5 text-slate-700">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSelectOfficer?.({
+                          id: `OFF-${team.id}`,
+                          name: team.leader,
+                          role: `${team.name} Commander`,
+                          sector: team.currentLocation,
+                          status: team.status === "On Mission" ? "On Field" : team.status,
+                          phone: "+91 98201 44521",
+                          assignmentHistory: [
+                            {
+                              id: "AH-1",
+                              taskName: team.currentMission || "Active Deployment",
+                              sector: team.currentLocation,
+                              status: "In Progress",
+                              timestamp: "Today, 08:00 IST",
+                            },
+                          ],
+                        })
+                      }
+                      className="text-[#1565C0] hover:underline font-bold"
+                      title="Inspect Commander"
+                    >
+                      {team.leader}
+                    </button>
+                  </td>
                   <td className="px-3.5 py-2.5 text-slate-700 font-medium">{team.currentLocation}</td>
                   <td className="px-3.5 py-2.5 text-slate-600">{team.memberCount} Members</td>
                   <td className="px-3.5 py-2.5 font-mono text-slate-600">{team.connectivity} ({team.batteryLevel}%)</td>
