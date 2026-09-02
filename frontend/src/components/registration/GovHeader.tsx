@@ -16,7 +16,8 @@ import {
   CheckCircle2, 
   ChevronRight,
   ShieldCheck,
-  Radio
+  Radio,
+  HeartHandshake
 } from 'lucide-react';
 import { hasOfflineGuides } from '@/services/offlineCache';
 import { getBrowserIdentifier } from '@/services/browserIdentifier';
@@ -262,6 +263,19 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <PhoneCall className="w-3.5 h-3.5 text-amber-300" />
               <span>📞 IVR Call Simulator</span>
             </Link>
+
+            {/* 6. Relief Donations Tab */}
+            <Link
+              href="/citizen/donation"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
+                pathname.startsWith('/citizen/donation') || pathname === '/citizen/donate'
+                  ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
+                  : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
+              }`}
+            >
+              <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Relief Donations</span>
+            </Link>
           </div>
         </nav>
       </header>
@@ -414,6 +428,24 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                     <div>
                       <div>📞 IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
                       <div className="text-[11px] font-normal text-gray-500">Simulated 9-step non-smartphone intake flow</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
+
+                {/* Relief Donations */}
+                <Link
+                  href="/citizen/donation"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
+                    pathname.startsWith('/citizen/donation') || pathname === '/citizen/donate' ? 'bg-emerald-50 text-emerald-900' : 'hover:bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HeartHandshake className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <div>Relief Donations / राहत कोष एवं सामग्री दान</div>
+                      <div className="text-[11px] font-normal text-gray-500">Contribute medical supplies, rations &amp; funds</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />

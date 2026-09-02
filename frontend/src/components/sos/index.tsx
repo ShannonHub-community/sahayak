@@ -8,7 +8,37 @@ import { GovFooter } from '@/components/GovFooter';
 import { SOSForm } from '@/components/SOSForm';
 import { CompassDisplay } from '@/components/CompassDisplay';
 import type { SOSResponse } from '@/types/sos';
-import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight } from 'lucide-react';
+import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight, HeartHandshake } from 'lucide-react';
+
+function DonationPortalCard() {
+  return (
+    <Link
+      href="/citizen/donation"
+      className="w-full bg-emerald-50 hover:bg-emerald-100/90 active:bg-emerald-200/80 border-2 border-emerald-600 hover:border-emerald-700 rounded-sm p-4 sm:p-5 shadow-sm flex items-center justify-between gap-3 sm:gap-4 transition-all group text-left"
+      title="Contribute essential supplies, medical inventory, or funds to relief operations"
+    >
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-sm bg-emerald-100 border border-emerald-300 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <HeartHandshake className="w-6 h-6 text-emerald-700" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-slate-900 font-extrabold text-sm sm:text-base leading-tight group-hover:text-emerald-950 transition-colors">
+            CONTRIBUTE TO RELIEF EFFORTS / राहत सहयोग
+          </div>
+          <p className="text-slate-700 text-xs sm:text-sm font-medium mt-0.5">
+            Donate Supplies &amp; Funds • Food, Medical &amp; Financial Aid
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 bg-emerald-700 group-hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm px-3.5 py-2 rounded-sm shadow-xs flex-shrink-0 transition-colors">
+        <span className="hidden sm:inline">Donate Now</span>
+        <span className="sm:hidden">Donate</span>
+        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+      </div>
+    </Link>
+  );
+}
 
 export default function HomePage() {
   // Page states: 'collapsed' (big centered button) | 'expanded' (in-place form) | 'submitted' (compass guidance)
@@ -94,6 +124,9 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {/* Public Relief & Donation Portal Card */}
+              <DonationPortalCard />
+
               {/* Direct News Report & Evacuation Advisories Link Button */}
               <Link
                 href="/citizen/news-report"
@@ -125,8 +158,13 @@ export default function HomePage() {
 
         {/* STATE 2: EXPANDED — In-Place SOS Form */}
         {viewState === 'expanded' && (
-          <div className="w-full my-auto animate-fadeIn">
+          <div className="w-full my-auto animate-fadeIn space-y-6">
             <SOSForm onCancel={handleCancelForm} onSubmitSuccess={handleSubmitSuccess} />
+
+            {/* Secondary Action Card below SOS Form */}
+            <div className="pt-2">
+              <DonationPortalCard />
+            </div>
           </div>
         )}
 
