@@ -1,9 +1,29 @@
-import React from 'react';
-import { AlertOctagon, AlertTriangle, Info, Clock, Shield } from 'lucide-react';
-import type { PublicAlert, AlertSeverity } from '@/types/alerts';
+'use client';
 
-interface AlertCardProps {
+import React, { useState, useEffect } from 'react';
+import { 
+  AlertOctagon, 
+  AlertTriangle, 
+  Info, 
+  Clock, 
+  Shield, 
+  Volume2, 
+  Square, 
+  MapPin 
+} from 'lucide-react';
+import type { PublicAlert, AlertSeverity } from '@/types/alerts';
+import type { LanguageCode } from '@/types/translation';
+import { 
+  getAudioForAlert, 
+  stopSpeech, 
+  isSpeechSynthesisSupported 
+} from '@/services/tts';
+
+export interface AlertCardProps {
   alert: PublicAlert;
+  translatedTitle?: string;
+  translatedMessage?: string;
+  activeLanguage?: LanguageCode | string;
 }
 
 // Format timestamp cleanly for citizens
@@ -40,12 +60,80 @@ function formatAlertTime(isoString: string): { relative: string; full: string } 
   }
 }
 
-export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
+export const AlertCard: React.FC<AlertCardProps> = ({ 
+  alert, 
+  translatedTitle, 
+  translatedMessage,
+  activeLanguage = 'en'
+}) => {
   const { relative, full } = formatAlertTime(alert.timestamp);
+  
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isTTSAvailable, setIsTTSAvailable] = useState<boolean>(true);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
 
-  // Severity styles strictly adhering to spec:
-  // "Critical = red border/accent, Warning = amber border/accent, Info = blue border/accent"
-  // "keep the rest of the card clean white/light-gray background for readability, not a fully-colored card"
+  const displayTitle = translatedTitle || alert.title;
+  const displayMessage = translatedMessage || alert.message;
+
+  // Check browser support for SpeechSynthesis on mount
+  useEffect(() => {
+    setIsTTSAvailable(isSpeechSynthesisSupported());
+  }, []);
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
+
+  // Listen for global stop-audio event so only one card speaks at a time
+  useEffect(() => {
+    const handleGlobalStop = (e: Event) => {
+      const customEvent = e as CustomEvent<{ sourceId: string }>;
+      if (customEvent.detail?.sourceId !== alert.id) {
+        setIsPlaying(false);
+      }
+    };
+
+    window.addEventListener('sahayak-stop-alert-audio', handleGlobalStop);
+    return () => {
+      window.removeEventListener('sahayak-stop-alert-audio', handleGlobalStop);
+    };
+  }, [alert.id]);
+
+  const handleToggleAudio = () => {
+    if (isPlaying) {
+      stopSpeech();
+      setIsPlaying(false);
+      return;
+    }
+
+    // Notify other cards to stop speaking
+    window.dispatchEvent(
+      new CustomEvent('sahayak-stop-alert-audio', { detail: { sourceId: alert.id } })
+    );
+
+    setVoiceNotice(null);
+    const fullTextToRead = `${displayTitle}. ${displayMessage}`;
+
+    getAudioForAlert(fullTextToRead, activeLanguage, {
+      onStart: () => {
+        setIsPlaying(true);
+      },
+      onEnd: () => {
+        setIsPlaying(false);
+      },
+      onError: (err) => {
+        console.warn('SpeechSynthesis error:', err);
+        setIsPlaying(false);
+      },
+      onVoiceUnavailable: (info) => {
+        setVoiceNotice(`Device voice for ${info.requested.toUpperCase()} not installed. Speaking in fallback voice.`);
+      },
+    });
+  };
+
   const severityConfig: Record<
     AlertSeverity,
     {
@@ -86,9 +174,9 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
       className={`w-full bg-white border rounded-md p-4 sm:p-5 shadow-xs transition-colors hover:bg-gray-50/50 ${currentConfig.borderClass}`}
       aria-labelledby={`alert-title-${alert.id}`}
     >
-      {/* Header: Severity Badge + Category Pill + Timestamp */}
+      {/* Header: Severity Badge + State + ID + Timestamp + Native Speech TTS Button */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2.5 mb-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Severity Badge */}
           <span
             className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase rounded border ${currentConfig.badgeClass}`}
@@ -97,33 +185,84 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
             <span>{currentConfig.badgeText}</span>
           </span>
 
-          <span className="text-[10px] font-mono text-gray-500 hidden sm:inline-block">
+          {/* Location / State Badge */}
+          {alert.state && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 bg-slate-100 rounded border border-slate-200">
+              <MapPin className="w-3 h-3 text-[#0B3D6E]" />
+              <span>{alert.state}</span>
+            </span>
+          )}
+
+          <span className="text-[10px] font-mono text-gray-400 hidden sm:inline-block">
             {alert.id}
           </span>
         </div>
 
-        {/* Timestamp */}
-        <div
-          className="flex items-center gap-1 text-[11px] text-gray-600 font-mono"
-          title={`Published at ${full}`}
-        >
-          <Clock className="w-3 h-3 text-gray-400" />
-          <span className="font-semibold text-gray-800">{relative}</span>
-          <span className="text-gray-400 hidden sm:inline">({full})</span>
+        {/* Timestamp & Native Speech TTS Button */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div
+            className="flex items-center gap-1 text-[11px] text-gray-600 font-mono"
+            title={`Published at ${full}`}
+          >
+            <Clock className="w-3 h-3 text-gray-400" />
+            <span className="font-semibold text-gray-800">{relative}</span>
+            <span className="text-gray-400 hidden md:inline">({full})</span>
+          </div>
+
+          {/* Native Web Speech TTS Button (Gracefully hidden if unsupported) */}
+          {isTTSAvailable && (
+            <button
+              type="button"
+              onClick={handleToggleAudio}
+              aria-label={isPlaying ? 'Stop reading alert aloud' : 'Read alert aloud via speech audio'}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-bold transition-colors border cursor-pointer ${
+                isPlaying
+                  ? 'bg-red-600 text-white border-red-700 animate-pulse'
+                  : 'bg-slate-100 hover:bg-slate-200 text-[#0B3D6E] border-slate-300'
+              }`}
+              title={isPlaying ? 'Stop reading alert' : 'Listen to this alert (offline native speech)'}
+            >
+              {isPlaying ? (
+                <>
+                  <Square className="w-3 h-3 fill-current" />
+                  <span className="text-[11px]">Stop</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline text-[11px]">Listen / सुनें</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Title */}
+      {/* Voice notice banner if specific language voice not installed on device */}
+      {voiceNotice && (
+        <div className="mb-2 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded flex items-center justify-between gap-1">
+          <span>{voiceNotice}</span>
+          <button
+            type="button"
+            onClick={() => setVoiceNotice(null)}
+            className="text-amber-900 font-bold hover:underline ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Title (Translated or Original) */}
       <h2
         id={`alert-title-${alert.id}`}
         className="text-sm sm:text-base font-bold text-gray-900 leading-snug mb-2"
       >
-        {alert.title}
+        {displayTitle}
       </h2>
 
-      {/* Message Body */}
+      {/* Message Body (Translated or Original) */}
       <p className="text-xs sm:text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">
-        {alert.message}
+        {displayMessage}
       </p>
 
       {/* Official Government Verification Footer */}
@@ -132,7 +271,11 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
           <Shield className="w-3 h-3 text-[#0B3D6E]" />
           <span>Verified Government Release • National Disaster Grid</span>
         </div>
-        <span className="font-mono text-gray-400">READ-ONLY FEED</span>
+        <span className="font-mono text-gray-400">
+          {activeLanguage !== 'en' && (translatedTitle || translatedMessage)
+            ? `TRANSLATED (${activeLanguage.toUpperCase()})`
+            : 'READ-ONLY FEED'}
+        </span>
       </div>
     </article>
   );

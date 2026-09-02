@@ -6,6 +6,7 @@ export interface PublicAlert {
   message: string;
   severity: AlertSeverity;
   timestamp: string;
+  state?: string;
 }
 
 export interface PublicAlertsResponse {

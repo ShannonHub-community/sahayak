@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
+import useSWR from 'swr';
 import type { PublicAlert } from '@/types/alerts';
 
 const STORAGE_CACHE_KEY = 'sahayak_cached_public_alerts_v1';
 
-const SAMPLE_FALLBACK_ALERTS: PublicAlert[] = [
+export const SAMPLE_FALLBACK_ALERTS: PublicAlert[] = [
   {
     id: 'ALT-NDMA-2026-089',
     title: 'Dam Sluice Gate Discharge Advisory — Krishna River Basin',
     message: 'Due to continuous heavy catchment rainfall, 4 spillway gates at Almatti & Narayanpur dams have been opened discharging 1,45,000 cusecs. Residents along low-lying riverbanks must move to designated higher ground shelters immediately.',
     severity: 'critical',
+    state: 'Karnataka',
     timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
   },
   {
@@ -18,6 +20,7 @@ const SAMPLE_FALLBACK_ALERTS: PublicAlert[] = [
     title: 'Red Alert for Extremely Heavy Downpour — Konkan & Coastal Maharashtra',
     message: 'India Meteorological Department (IMD) issues Red Alert warning of isolated extremely heavy rainfall (>204.4 mm) over Raigad, Thane, and Mumbai MMR over the next 24 hours.',
     severity: 'critical',
+    state: 'Maharashtra',
     timestamp: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
   },
   {
@@ -25,6 +28,7 @@ const SAMPLE_FALLBACK_ALERTS: PublicAlert[] = [
     title: 'Immediate Evacuation Order — Riverside Low-Lying Wards',
     message: 'Local administration has activated mandatory evacuation for riverfront settlements. Municipal transport buses are deployed at Old Bus Stand for safe transit to Municipal High School relief camp.',
     severity: 'warning',
+    state: 'Maharashtra',
     timestamp: new Date(Date.now() - 1000 * 60 * 75).toISOString(),
   },
   {
@@ -32,6 +36,7 @@ const SAMPLE_FALLBACK_ALERTS: PublicAlert[] = [
     title: 'Designated Relief Camp Activated at Pillai Engineering College (Panvel)',
     message: 'District Disaster Management Authority has activated relief shelter at Pillai College Campus, New Panvel. Food packets, dry ration, clean drinking water, and emergency medical triage are functional 24x7. Capacity: 1,500 PAX.',
     severity: 'info',
+    state: 'Maharashtra',
     timestamp: new Date(Date.now() - 1000 * 60 * 400).toISOString(),
   },
 ];
@@ -54,7 +59,7 @@ export interface UsePublicAlertsReturn {
   isValidating: boolean;
   isOfflineCached: boolean;
   error: Error | undefined;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<any>;
 }
 
 interface RawAlertItem {
@@ -63,86 +68,98 @@ interface RawAlertItem {
   title: string;
   message: string;
   severity?: string;
+  state?: string;
   timestamp?: string;
 }
 
-export function usePublicAlerts(page = 1): UsePublicAlertsReturn {
-  const [alerts, setAlerts] = useState<PublicAlert[]>(getCachedAlertsFromStorage);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [isOfflineCached, setIsOfflineCached] = useState<boolean>(false);
-
-  const fetchAlerts = useCallback(async () => {
-    setIsValidating(true);
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    if (isOffline) {
-      setIsOfflineCached(true);
-      setAlerts(getCachedAlertsFromStorage());
-      setIsValidating(false);
-      return;
+export const alertsFetcher = async (endpoint: string): Promise<PublicAlert[]> => {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+  let res: Response | null = null;
+  try {
+    res = await fetch(`${apiBase}${endpoint}`);
+  } catch {
+    if (!apiBase) {
+      res = await fetch(`http://localhost:8000${endpoint}`).catch(() => null);
     }
+  }
 
+  if (!res || !res.ok) {
+    throw new Error(`Failed to fetch alerts: ${res ? res.statusText : 'Network error'}`);
+  }
+
+  const json = await res.json();
+  const rawAlerts: RawAlertItem[] = Array.isArray(json) ? json : (json?.alerts || []);
+
+  const formattedAlerts: PublicAlert[] = rawAlerts.map((item: RawAlertItem) => ({
+    id: String(item.id || item.alert_id || `ALT-${Date.now()}`),
+    title: item.title,
+    message: item.message,
+    severity: (item.severity === 'critical' || item.severity === 'warning' || item.severity === 'info')
+      ? item.severity
+      : 'info',
+    timestamp: item.timestamp || new Date().toISOString(),
+    state: item.state,
+  }));
+
+  if (typeof window !== 'undefined' && formattedAlerts.length > 0) {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
-      let res: Response | null = null;
-      try {
-        res = await fetch(`${apiBase}/api/comms/public-feed?page=${page}`);
-      } catch {
-        if (!apiBase) {
-          res = await fetch(`http://localhost:8000/api/comms/public-feed?page=${page}`).catch(() => null);
-        }
-      }
-
-      if (res && res.ok) {
-        const json = await res.json();
-        const rawAlerts: RawAlertItem[] = Array.isArray(json) ? json : (json?.alerts || []);
-        if (Array.isArray(rawAlerts) && rawAlerts.length > 0) {
-          const formattedAlerts: PublicAlert[] = rawAlerts.map((item: RawAlertItem) => ({
-            id: String(item.id || item.alert_id || `ALT-${Date.now()}`),
-            title: item.title,
-            message: item.message,
-            severity: (item.severity === 'critical' || item.severity === 'warning' || item.severity === 'info')
-              ? item.severity
-              : 'info',
-            timestamp: item.timestamp || new Date().toISOString(),
-          }));
-          setAlerts(formattedAlerts);
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(formattedAlerts));
-            } catch {
-              // ignore
-            }
-          }
-          setIsOfflineCached(false);
-          setError(undefined);
-          return;
-        }
-      }
-    } catch (err: unknown) {
-      console.debug('Public alerts fetch error, fallback to cache:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setIsOfflineCached(true);
-    } finally {
-      setIsValidating(false);
-      setIsLoading(false);
+      localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(formattedAlerts));
+    } catch (e) {
+      console.warn('Unable to cache alerts in localStorage:', e);
     }
-  }, [page]);
+  }
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchAlerts();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchAlerts]);
+  return formattedAlerts;
+};
+
+/**
+ * Custom SWR hook for Live Updates & Alerts Feed
+ * Uses SWR caching + revalidation + state filtering + localStorage offline fallback
+ */
+export function usePublicAlerts(page = 1, stateFilter?: string | null): UsePublicAlertsReturn {
+  const queryParams = new URLSearchParams();
+  queryParams.set('page', page.toString());
+  if (stateFilter && stateFilter !== 'all') {
+    queryParams.set('state', stateFilter);
+  }
+
+  const endpointUrl = `/api/comms/public-feed?${queryParams.toString()}`;
+
+  const { data, error, isLoading, isValidating, mutate } = useSWR<PublicAlert[]>(
+    endpointUrl,
+    alertsFetcher,
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000,
+      fallbackData: typeof window !== 'undefined' ? getCachedAlertsFromStorage() : SAMPLE_FALLBACK_ALERTS,
+    }
+  );
+
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+  const initialCached = useMemo(() => {
+    return typeof window !== 'undefined' ? getCachedAlertsFromStorage() : SAMPLE_FALLBACK_ALERTS;
+  }, []);
+
+  const finalAlerts = useMemo(() => {
+    const base = data || initialCached;
+    if (stateFilter && stateFilter !== 'all' && (!data || isOffline || error)) {
+      const filtered = base.filter(
+        (a) => !a.state || a.state.toLowerCase() === stateFilter.toLowerCase()
+      );
+      if (filtered.length > 0) {
+        return filtered;
+      }
+    }
+    return base;
+  }, [data, initialCached, stateFilter, isOffline, error]);
 
   return {
-    alerts,
-    isLoading,
+    alerts: finalAlerts,
+    isLoading: isLoading && !data,
     isValidating,
-    isOfflineCached,
-    error,
-    refresh: fetchAlerts,
+    isOfflineCached: isOffline || Boolean(error && finalAlerts.length > 0),
+    error: error instanceof Error ? error : error ? new Error(String(error)) : undefined,
+    refresh: () => mutate(),
   };
 }

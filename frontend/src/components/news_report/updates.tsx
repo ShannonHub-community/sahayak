@@ -2,35 +2,152 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
 import { 
   Radio, 
   RefreshCw, 
   WifiOff, 
-  CheckCircle2, 
   AlertOctagon, 
   AlertTriangle, 
   Info, 
-  ArrowLeft,
-  ChevronDown
+  Globe,
+  MapPin,
+  X,
+  Loader2
 } from 'lucide-react';
 import { GovHeader } from '@/components/GovHeader';
 import { GovFooter } from '@/components/GovFooter';
 import { AlertCard } from '@/components/AlertCard';
 import { usePublicAlerts } from '@/services/alerts';
+import { getCurrentCoordinates } from '@/services/geolocation';
+import { getStateFromCoordinates } from '@/services/location';
+import { 
+  SUPPORTED_LANGUAGES, 
+  type LanguageCode 
+} from '@/types/translation';
+import { 
+  getSavedLanguage, 
+  saveLanguage, 
+  translateAlerts, 
+  type TranslatedAlertsMap 
+} from '@/services/translation';
 import type { AlertSeverity, PublicAlert } from '@/types/alerts';
-
 
 export default function UpdatesPage() {
   const mainContentRef = useRef<HTMLDivElement | null>(null);
+
+  // Filter & Location States
   const [selectedSeverity, setSelectedSeverity] = useState<AlertSeverity | 'all'>('all');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [detectedState, setDetectedState] = useState<string | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState<boolean>(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
+
+  // Translation States
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>('en');
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
+  const [translatedMap, setTranslatedMap] = useState<TranslatedAlertsMap>({});
+
+  // Refresh & Touch drag states
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [pullDistance, setPullDistance] = useState<number>(0);
   const touchStartY = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
 
-  // SWR Hook for resilient caching and revalidation
-  const { alerts, isLoading, isValidating, isOfflineCached, error, refresh } = usePublicAlerts();
+  // SWR Hook with optional stateFilter and resilient caching
+  const { alerts, isLoading, isValidating, isOfflineCached, error, refresh } = usePublicAlerts(
+    1,
+    selectedState
+  );
+
+  // 1. Initialize saved language and auto-detect GPS state on mount
+  useEffect(() => {
+    // Load persisted language
+    const savedLang = getSavedLanguage();
+    if (savedLang) {
+      setSelectedLanguage(savedLang);
+    }
+
+    // Auto-detect GPS coordinates and resolve Indian State
+    async function autoDetectLocation() {
+      setIsDetectingLocation(true);
+      setLocationNote(null);
+      try {
+        const coords = await getCurrentCoordinates();
+        const res = await getStateFromCoordinates(coords.lat, coords.lng);
+        if (res && res.state) {
+          setDetectedState(res.state);
+          setSelectedState(res.state);
+        } else {
+          setLocationNote('Showing nationwide feed — enable location to see alerts for your state.');
+        }
+      } catch (err: any) {
+        console.warn('GPS state detection unavailable:', err);
+        setLocationNote('Showing nationwide feed — enable location to see alerts for your state.');
+      } finally {
+        setIsDetectingLocation(false);
+      }
+    }
+
+    autoDetectLocation();
+  }, []);
+
+  // Keep ref to alerts so handleTranslation doesn't depend on unstable array references
+  const alertsRef = useRef(alerts);
+  useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  // Stable primitive fingerprint of alerts based on IDs
+  const alertsFingerprint = alerts.map((a) => a.id).join(',');
+
+  // 2. Perform translation when language changes or alert IDs change
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function handleTranslation() {
+      if (selectedLanguage === 'en') {
+        setTranslatedMap((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+        setIsTranslating(false);
+        return;
+      }
+
+      const currentAlerts = alertsRef.current;
+      if (!currentAlerts || currentAlerts.length === 0) {
+        return;
+      }
+
+      setIsTranslating(true);
+      try {
+        const result = await translateAlerts(currentAlerts, selectedLanguage);
+        console.log('[DEBUG] translateAlerts() raw response map:', result);
+        if (!isCancelled) {
+          setTranslatedMap(result);
+        }
+      } catch (err) {
+        console.warn('Translation failed, falling back to original text:', err);
+        if (!isCancelled) {
+          setTranslatedMap({});
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsTranslating(false);
+        }
+      }
+    }
+
+    handleTranslation();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedLanguage, alertsFingerprint]);
+
+  // Language selector change handler
+  const handleLanguageChange = (code: LanguageCode) => {
+    setSelectedLanguage(code);
+    saveLanguage(code);
+  };
 
   // Manual & Pull-to-refresh handler
   const handleManualRefresh = useCallback(async () => {
@@ -48,7 +165,6 @@ export default function UpdatesPage() {
   // Touch-based pull-to-refresh for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     if (typeof window === 'undefined') return;
-    // Only allow pull-to-refresh when scrolled to top
     if (window.scrollY === 0) {
       touchStartY.current = e.touches[0].clientY;
       isDragging.current = true;
@@ -66,7 +182,6 @@ export default function UpdatesPage() {
     const currentY = e.touches[0].clientY;
     const diff = currentY - touchStartY.current;
     if (diff > 0) {
-      // Dampen the pull distance (max 80px)
       const damped = Math.min(diff * 0.45, 80);
       setPullDistance(damped);
     }
@@ -91,7 +206,6 @@ export default function UpdatesPage() {
   const criticalCount = alerts.filter((a: PublicAlert) => a.severity === 'critical').length;
   const warningCount = alerts.filter((a: PublicAlert) => a.severity === 'warning').length;
   const infoCount = alerts.filter((a: PublicAlert) => a.severity === 'info').length;
-
 
   return (
     <div
@@ -135,9 +249,9 @@ export default function UpdatesPage() {
         tabIndex={-1}
         className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col outline-none space-y-4"
       >
-        {/* Page Identity & Refresh Bar */}
+        {/* Page Identity & Controls Bar */}
         <div className="bg-white border border-gray-300 rounded-md p-4 sm:p-5 shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-red-50 text-red-600 rounded-md border border-red-200">
                 <Radio className="w-5 h-5 animate-pulse" />
@@ -157,22 +271,116 @@ export default function UpdatesPage() {
               </div>
             </div>
 
-            {/* Primary Pull-to-Refresh / Reload Action Button */}
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              disabled={isRefreshing || isValidating}
-              className="bg-white hover:bg-gray-50 active:bg-gray-100 text-[#0B3D6E] border-2 border-[#0B3D6E] text-xs font-bold px-3 py-2 rounded-md shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-60"
-              title="Reload alerts from central disaster server"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || isValidating ? 'animate-spin' : ''}`} />
-              <span>{isRefreshing || isValidating ? 'Updating...' : 'Pull to Refresh'}</span>
-            </button>
+            {/* Right Controls: 11-Language Dropdown + Refresh Button */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 11-Language Selector Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1.5 rounded-md text-xs">
+                <Globe className="w-3.5 h-3.5 text-[#0B3D6E] flex-shrink-0" />
+                <label htmlFor="language-select" className="sr-only">
+                  Select Language
+                </label>
+                <select
+                  id="language-select"
+                  value={selectedLanguage}
+                  onChange={(e) => handleLanguageChange(e.target.value as LanguageCode)}
+                  className="bg-transparent font-bold text-[#0B3D6E] text-xs outline-none cursor-pointer pr-1"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Inline Translation Loading Indicator */}
+                {isTranslating && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 animate-pulse font-semibold ml-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="hidden sm:inline">Translating...</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Primary Pull-to-Refresh / Reload Action Button */}
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                disabled={isRefreshing || isValidating}
+                className="bg-white hover:bg-gray-50 active:bg-gray-100 text-[#0B3D6E] border-2 border-[#0B3D6E] text-xs font-bold px-3 py-1.5 rounded-md shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
+                title="Reload alerts from central disaster server"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || isValidating ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing || isValidating ? 'Updating...' : 'Refresh'}</span>
+              </button>
+            </div>
           </div>
 
           <p className="text-xs text-gray-600 leading-relaxed">
             Read-only authoritative alerts published by NDMA, IMD, Central Water Commission, and State Disaster Management Authorities. <strong>Data is cached automatically on this device</strong> and remains readable during cellular network blackouts.
           </p>
+
+          {/* Location / State Filtering Banner */}
+          {isDetectingLocation ? (
+            <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-md text-xs text-blue-900 flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0B3D6E]" />
+              <span>Detecting your location via GPS to display relevant regional advisories...</span>
+            </div>
+          ) : selectedState && !bannerDismissed ? (
+            <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded-md text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                <span>
+                  Showing alerts for <strong>{selectedState}</strong> (based on GPS location).
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedState(null)}
+                  className="text-[11px] font-bold text-emerald-900 underline hover:text-emerald-700 cursor-pointer"
+                >
+                  View Nationwide Feed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBannerDismissed(true)}
+                  aria-label="Dismiss location banner"
+                  className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : !selectedState && detectedState ? (
+            <div className="bg-slate-50 border border-slate-300 p-2 rounded-md text-xs text-slate-700 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                <span>Showing unfiltered nationwide alerts.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedState(detectedState)}
+                className="text-[11px] font-bold text-[#0B3D6E] underline hover:text-blue-900 cursor-pointer"
+              >
+                Filter to {detectedState}
+              </button>
+            </div>
+          ) : locationNote && !bannerDismissed ? (
+            <div className="bg-amber-50 border border-amber-200 p-2 rounded-md text-xs text-amber-900 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Info className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
+                <span>{locationNote}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBannerDismissed(true)}
+                aria-label="Dismiss note"
+                className="text-amber-700 hover:text-amber-900 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : null}
 
           {/* Offline / Cached Notice Banner */}
           {isOfflineCached && (
@@ -189,28 +397,28 @@ export default function UpdatesPage() {
             </div>
           )}
 
-          {/* Quick Severity Filter Chips (Mobile-friendly triage) */}
+          {/* Quick Severity Filter Chips */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[11px] font-bold text-gray-500 uppercase mr-1">
-              Filter:
+              Severity:
             </span>
 
             <button
               type="button"
               onClick={() => setSelectedSeverity('all')}
-              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors ${
+              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors cursor-pointer ${
                 selectedSeverity === 'all'
                   ? 'bg-[#0B3D6E] text-white border-[#0B3D6E]'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
               }`}
             >
-              All Alerts ({alerts.length})
+              All ({alerts.length})
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedSeverity('critical')}
-              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
                 selectedSeverity === 'critical'
                   ? 'bg-red-600 text-white border-red-700'
                   : 'bg-white text-red-700 border-red-200 hover:bg-red-50'
@@ -223,7 +431,7 @@ export default function UpdatesPage() {
             <button
               type="button"
               onClick={() => setSelectedSeverity('warning')}
-              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
                 selectedSeverity === 'warning'
                   ? 'bg-amber-600 text-white border-amber-700'
                   : 'bg-white text-amber-800 border-amber-200 hover:bg-amber-50'
@@ -236,7 +444,7 @@ export default function UpdatesPage() {
             <button
               type="button"
               onClick={() => setSelectedSeverity('info')}
-              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
                 selectedSeverity === 'info'
                   ? 'bg-blue-700 text-white border-blue-800'
                   : 'bg-white text-[#0B3D6E] border-blue-200 hover:bg-blue-50'
@@ -282,18 +490,24 @@ export default function UpdatesPage() {
               <button
                 type="button"
                 onClick={handleManualRefresh}
-                className="bg-[#0B3D6E] text-white text-xs font-bold px-4 py-2 rounded-md shadow-xs"
+                className="bg-[#0B3D6E] text-white text-xs font-bold px-4 py-2 rounded-md shadow-xs cursor-pointer"
               >
                 Retry Connection
               </button>
             </div>
           )}
 
-          {/* Filtered Alerts List */}
+          {/* Filtered Alerts List with Per-Card Audio & Translation */}
           {!isLoading && filteredAlerts.length > 0 && (
             <div className="space-y-3">
               {filteredAlerts.map((alert: PublicAlert) => (
-                <AlertCard key={alert.id} alert={alert} />
+                <AlertCard 
+                  key={alert.id} 
+                  alert={alert}
+                  translatedTitle={translatedMap[alert.id]?.title}
+                  translatedMessage={translatedMap[alert.id]?.message}
+                  activeLanguage={selectedLanguage}
+                />
               ))}
             </div>
           )}
@@ -303,12 +517,13 @@ export default function UpdatesPage() {
             <div className="bg-white border border-gray-300 rounded-md p-8 text-center text-gray-500 space-y-2">
               <Info className="w-6 h-6 text-gray-400 mx-auto" />
               <p className="text-xs font-medium">
-                No alerts found matching the &quot;{selectedSeverity}&quot; severity category.
+                No alerts found matching the &quot;{selectedSeverity}&quot; severity category
+                {selectedState ? ` in ${selectedState}` : ''}.
               </p>
               <button
                 type="button"
                 onClick={() => setSelectedSeverity('all')}
-                className="text-xs font-bold text-[#0B3D6E] underline"
+                className="text-xs font-bold text-[#0B3D6E] underline cursor-pointer"
               >
                 Show All Alerts
               </button>
@@ -319,7 +534,8 @@ export default function UpdatesPage() {
         {/* Bottom Helper Bar */}
         <div className="p-3 bg-gray-100 border border-gray-300 rounded-md text-center text-[11px] text-gray-600 flex flex-wrap items-center justify-between gap-2">
           <span>
-            Showing latest 20 official bulletins ordered newest-first.
+            Showing official bulletins ordered newest-first.
+            {selectedState ? ` Region: ${selectedState}` : ' Region: Nationwide'}
           </span>
           <span className="font-mono text-gray-500">
             Feed Protocol: SWR-Offline-v1
