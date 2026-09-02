@@ -28,7 +28,6 @@ const MiniMap = dynamic<MiniMapProps>(
   }
 );
 import type { SOSLocation, SOSPayload, SOSResponse, CitizenProfile } from '@/types/sos';
-import { useGeolocation } from '@/hooks/useGeolocation';
 import { getBrowserIdentifier, getBrowserSessionId } from '@/services/browserIdentifier';
 import { lookupCitizenProfile } from '@/services/autofill';
 import { getCachedGuide } from '@/services/offlineCache';
@@ -75,16 +74,10 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   const [includesElderly, setIncludesElderly] = useState<boolean>(false);
   const [landmark, setLandmark] = useState<string>('');
 
-  // Location State via Shared Hook
-  const {
-    location: gpsLocation,
-    setLocation: setCurrentLocation,
-    isAcquiring: isAcquiringLocation,
-    error: locationError,
-    acquireLocation,
-  } = useGeolocation(NATIONAL_FALLBACK_LOCATION);
-
-  const currentLocation = gpsLocation || NATIONAL_FALLBACK_LOCATION;
+  // Location State
+  const [currentLocation, setCurrentLocation] = useState<SOSLocation>(NATIONAL_FALLBACK_LOCATION);
+  const [isAcquiringLocation, setIsAcquiringLocation] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // First Aid Offline Guide State
   const [cachedGuide, setCachedGuide] = useState<FirstAidGuideContent | null>(null);
@@ -115,7 +108,47 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
 
   // 2. Geolocation acquisition
   const acquireGPS = () => {
-    acquireLocation();
+    if (typeof window === 'undefined') return;
+
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsAcquiringLocation(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsAcquiringLocation(false);
+        const newLocation: SOSLocation = {
+          lat: Number(position.coords.latitude.toFixed(6)),
+          lng: Number(position.coords.longitude.toFixed(6)),
+          accuracy: position.coords.accuracy,
+          isFallback: false,
+        };
+        setCurrentLocation(newLocation);
+        setLocationError(null);
+      },
+      (error) => {
+        setIsAcquiringLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert('Location permission denied. Please enable it in your browser settings.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            alert('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            alert('The request to get user location timed out.');
+            break;
+          default:
+            alert('An unknown error occurred while fetching location.');
+            break;
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
   };
 
   useEffect(() => {

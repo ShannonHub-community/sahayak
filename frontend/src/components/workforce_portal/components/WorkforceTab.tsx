@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { mockOfficers, Officer } from "../lib/mockData";
 
 interface DispatchItem {
   id: string;
@@ -14,7 +15,11 @@ interface DispatchItem {
   time: string;
 }
 
-export default function WorkforceConsole() {
+interface WorkforceConsoleProps {
+  onSelectOfficer?: (officer: Officer) => void;
+}
+
+export default function WorkforceConsole({ onSelectOfficer }: WorkforceConsoleProps = {}) {
   const [queue, setQueue] = useState<DispatchItem[]>([
     { id: "SOS-102", category: "Evacuation", ward: "Ward 1 (Old Panvel)", severity: "Critical", description: "15 families stranded near riverbank", status: "Pending Approval", time: "18:42 IST" },
     { id: "SOS-101", category: "Waterlogging", ward: "Ward 3 (Station Road)", severity: "High", description: "3ft water blocking main intersection", status: "Pending Approval", time: "18:35 IST" },
@@ -117,30 +122,47 @@ export default function WorkforceConsole() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#D7DEE7] text-slate-800">
-              <tr>
-                <td className="px-3.5 py-2.5 font-mono font-semibold">OFF-101</td>
-                <td className="px-3.5 py-2.5 font-bold">Insp. R. Sharma</td>
-                <td className="px-3.5 py-2.5">NDRF Unit 1</td>
-                <td className="px-3.5 py-2.5">Ward 1 (Old Panvel)</td>
-                <td className="px-3.5 py-2.5"><span className="px-2 py-0.5 bg-emerald-100 text-[#2E7D32] rounded text-[10px] font-semibold">On Field</span></td>
-                <td className="px-3.5 py-2.5"><button className="text-[#1565C0] hover:underline font-semibold">Update Assignment</button></td>
-              </tr>
-              <tr>
-                <td className="px-3.5 py-2.5 font-mono font-semibold">OFF-102</td>
-                <td className="px-3.5 py-2.5 font-bold">Dr. A. Verma</td>
-                <td className="px-3.5 py-2.5">EMS Ambulance 3</td>
-                <td className="px-3.5 py-2.5">Ward 4 (Kalamboli)</td>
-                <td className="px-3.5 py-2.5"><span className="px-2 py-0.5 bg-blue-100 text-[#1565C0] rounded text-[10px] font-semibold">Dispatched</span></td>
-                <td className="px-3.5 py-2.5"><button className="text-[#1565C0] hover:underline font-semibold">Update Assignment</button></td>
-              </tr>
-              <tr>
-                <td className="px-3.5 py-2.5 font-mono font-semibold">OFF-103</td>
-                <td className="px-3.5 py-2.5 font-bold">S. Kadam</td>
-                <td className="px-3.5 py-2.5">Civil Defense</td>
-                <td className="px-3.5 py-2.5">Ward 5 (Khandeshwar)</td>
-                <td className="px-3.5 py-2.5"><span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-semibold">Standby</span></td>
-                <td className="px-3.5 py-2.5"><button className="text-[#1565C0] hover:underline font-semibold">Update Assignment</button></td>
-              </tr>
+              {mockOfficers.map((officer) => (
+                <tr
+                  key={officer.id}
+                  onClick={() => onSelectOfficer?.(officer)}
+                  className="cursor-pointer hover:bg-slate-50 transition-colors group"
+                >
+                  <td className="px-3.5 py-2.5 font-mono font-semibold text-[#1F3A5F] group-hover:text-[#1565C0]">
+                    {officer.id}
+                  </td>
+                  <td className="px-3.5 py-2.5 font-bold text-slate-900">
+                    {officer.name}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-slate-700">{officer.role}</td>
+                  <td className="px-3.5 py-2.5 text-slate-700 font-medium">{officer.sector}</td>
+                  <td className="px-3.5 py-2.5">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                        officer.status === "On Field"
+                          ? "bg-emerald-100 text-[#2E7D32]"
+                          : officer.status === "Dispatched"
+                          ? "bg-blue-100 text-[#1565C0]"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {officer.status}
+                    </span>
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectOfficer?.(officer);
+                      }}
+                      className="text-[#1565C0] hover:underline font-semibold"
+                    >
+                      Inspect Profile →
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

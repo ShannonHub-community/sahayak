@@ -1,21 +1,18 @@
-﻿'use client';
+'use client';
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Users, Home, ShieldAlert } from 'lucide-react';
+import { Users, Home, ShieldAlert, PackageCheck, FileSpreadsheet, Radio } from 'lucide-react';
 
-const WorkforceQueue = dynamic(
-  () =>
-    import('@/components/resource_manager/WorkforceQueue').then(
-      (mod) => mod.WorkforceQueue
-    ),
+const WorkforceDashboard = dynamic(
+  () => import('@/components/workforce_portal/WorkforceDashboard'),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+      <div className="flex h-96 w-full items-center justify-center bg-white rounded-xl border border-slate-200 shadow-sm">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-300 border-t-[#0B3D6E]" />
-          <p className="text-sm font-semibold text-slate-700">
+          <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-[#0B3D6E]" />
+          <p className="text-xs font-semibold text-slate-600">
             Loading NDRF Field Commander Portal...
           </p>
         </div>
@@ -56,6 +53,34 @@ export default function AdminWorkforcePage() {
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>FIELD COMMAND ACTIVE</span>
             </div>
+
+            <Link
+              href="/admin/resource-ledger"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors"
+              title="Logistics &amp; Shelter Ledger"
+            >
+              <PackageCheck className="w-3.5 h-3.5 text-blue-200" />
+              <span className="hidden sm:inline">Logistics</span>
+            </Link>
+
+            <Link
+              href="/admin/twin"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors"
+              title="Digital Twin Map"
+            >
+              <Radio className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">Digital Twin</span>
+            </Link>
+
+            <Link
+              href="/admin/audit-log"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors"
+              title="Audit &amp; System Logs"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
+              <span className="hidden sm:inline">Audit</span>
+            </Link>
+
             <Link
               href="/"
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition-colors"
@@ -68,8 +93,9 @@ export default function AdminWorkforcePage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1800px] w-full mx-auto px-4 sm:px-6 py-6">
-        <WorkforceQueue />
+      {/* Main Admin Dashboard Container */}
+      <main className="flex-1 max-w-[1800px] w-full mx-auto p-4 sm:p-6 space-y-5">
+        <WorkforceDashboard />
       </main>
 
     </div>
