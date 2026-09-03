@@ -59,14 +59,16 @@ export async function translateAlerts(
 
   try {
     console.log('[DEBUG] Calling POST /api/comms/translate with payload:', payload);
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
     let res: Response | null = null;
     try {
       res = await fetch(`${apiBase}/api/comms/translate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       });
     } catch (fetchErr) {
@@ -74,9 +76,7 @@ export async function translateAlerts(
       if (!apiBase) {
         res = await fetch('http://localhost:8000/api/comms/translate', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify(payload),
         }).catch(() => null);
       }

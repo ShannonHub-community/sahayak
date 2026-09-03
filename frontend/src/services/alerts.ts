@@ -73,13 +73,18 @@ interface RawAlertItem {
 }
 
 export const alertsFetcher = async (endpoint: string): Promise<PublicAlert[]> => {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+  const headers: HeadersInit = {
+    'Accept': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  };
+
   let res: Response | null = null;
   try {
-    res = await fetch(`${apiBase}${endpoint}`);
+    res = await fetch(`${apiBase}${endpoint}`, { headers });
   } catch {
     if (!apiBase) {
-      res = await fetch(`http://localhost:8000${endpoint}`).catch(() => null);
+      res = await fetch(`http://localhost:8000${endpoint}`, { headers }).catch(() => null);
     }
   }
 

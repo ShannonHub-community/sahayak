@@ -12,23 +12,23 @@ export async function getStateFromCoordinates(
   lng: number
 ): Promise<StateLookupResult> {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
     let res: Response | null = null;
     try {
       res = await fetch(`${apiBase}/api/geo/state-lookup`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ lat, lng }),
       });
     } catch {
       if (!apiBase) {
         res = await fetch('http://localhost:8000/api/geo/state-lookup', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({ lat, lng }),
         }).catch(() => null);
       }

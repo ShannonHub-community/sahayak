@@ -111,11 +111,12 @@ export async function submitRegistration(payload: CitizenRegistrationPayload): P
 
   // Try submitting to backend API if available
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
     await fetch(`${apiBase}/api/citizen/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify({
         ...payload,

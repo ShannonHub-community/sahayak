@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { MiniMapProps } from './MiniMap';
+import { getRealCoordinates } from '@/services/geolocation';
 
 const MiniMap = dynamic<MiniMapProps>(
 
@@ -40,13 +41,7 @@ interface SOSFormProps {
   onSubmitSuccess: (response: SOSResponse) => void;
 }
 
-// Fallback National Coordinates (Nagpur / Central India)
-const NATIONAL_FALLBACK_LOCATION: SOSLocation = {
-  lat: 20.5937,
-  lng: 78.9629,
-  accuracy: 5000,
-  isFallback: true,
-};
+
 
 const CRITICAL_MEDICAL_CONDITIONS = [
   { value: '', label: 'None / कोई नहीं' },
@@ -75,8 +70,8 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   const [landmark, setLandmark] = useState<string>('');
 
   // Location State
-  const [currentLocation, setCurrentLocation] = useState<SOSLocation>(NATIONAL_FALLBACK_LOCATION);
-  const [isAcquiringLocation, setIsAcquiringLocation] = useState<boolean>(false);
+  const [currentLocation, setCurrentLocation] = useState<SOSLocation | null>(null);
+  const [isAcquiringLocation, setIsAcquiringLocation] = useState<boolean>(true);
   const [locationError, setLocationError] = useState<string | null>(null);
 
   // First Aid Offline Guide State
@@ -107,48 +102,28 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   }, []);
 
   // 2. Geolocation acquisition
-  const acquireGPS = () => {
+  const acquireGPS = async () => {
     if (typeof window === 'undefined') return;
-
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
 
     setIsAcquiringLocation(true);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsAcquiringLocation(false);
-        const newLocation: SOSLocation = {
-          lat: Number(position.coords.latitude.toFixed(6)),
-          lng: Number(position.coords.longitude.toFixed(6)),
-          accuracy: position.coords.accuracy,
-          isFallback: false,
-        };
-        setCurrentLocation(newLocation);
-        setLocationError(null);
-      },
-      (error) => {
-        setIsAcquiringLocation(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            alert('Location permission denied. Please enable it in your browser settings.');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            alert('Location information is unavailable.');
-            break;
-          case error.TIMEOUT:
-            alert('The request to get user location timed out.');
-            break;
-          default:
-            alert('An unknown error occurred while fetching location.');
-            break;
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+    try {
+      const coords = await getRealCoordinates();
+      setIsAcquiringLocation(false);
+      const newLocation: SOSLocation = {
+        lat: coords.lat,
+        lng: coords.lng,
+        accuracy: coords.accuracy,
+        isFallback: false,
+      };
+      setCurrentLocation(newLocation);
+      setLocationError(null);
+    } catch (err: any) {
+      setIsAcquiringLocation(false);
+      setCurrentLocation(null);
+      setLocationError(err?.message || 'Unable to acquire GPS location.');
+    }
   };
 
   useEffect(() => {
@@ -235,7 +210,11 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
       return;
     }
 
-    const effectiveLocation = currentLocation || NATIONAL_FALLBACK_LOCATION;
+    if (!currentLocation) {
+      setFormError('Real GPS coordinates are required for emergency dispatch. Please tap "Use Current Location" to acquire your position.');
+      return;
+    }
+
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     const payload: SOSPayload = {
@@ -248,8 +227,8 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
       includes_infants: includesInfants,
       includes_elderly: includesElderly,
       location: {
-        lat: effectiveLocation.lat,
-        lng: effectiveLocation.lng,
+        lat: currentLocation.lat,
+        lng: currentLocation.lng,
       },
       landmark: landmark.trim() ? landmark.trim() : null,
       transmission_method: isOnline ? 'internet' : 'sms',

@@ -61,12 +61,13 @@ export async function submitSOS(payload: SOSPayload): Promise<SOSResponse> {
   }
 
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
     const response = await fetch(`${apiBase}/api/sos`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify(payload),
     });

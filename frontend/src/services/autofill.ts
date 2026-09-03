@@ -18,11 +18,12 @@ export async function lookupCitizenProfile(providedBrowserId?: string | null): P
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
   if (isOnline) {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
       const res = await fetch(`${apiBase}/api/citizen/lookup?browser_id=${encodeURIComponent(browserId)}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
         },
       });
 

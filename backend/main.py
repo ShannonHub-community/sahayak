@@ -25,6 +25,7 @@ from services.resource_service.router import router as resource_router
 from services.news_report.router import (
     news_report_router,
     public_feed_router,
+    geo_router,
 )
 from services.donation_service.router import router as donation_router
 from services.twin_aggregator.router import router as twin_aggregator_router
@@ -33,8 +34,13 @@ from services.ai_decision.router import router as ai_decision_router
 
 app = FastAPI(
     title="Sahayak Disaster Management API",
-    description="Unified multi-domain backend API for Citizen SOS, AI Command Center, EOC Operations, and Logistics Ledgers.",
+    description="Unified API Gateway and micro-service mesh for Sahayak Disaster Management Ecosystem",
     version="1.0.0",
+)
+
+allowed_origin_regex = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"^https://.*\.ngrok-free\.app$|^https://.*\.ngrok-free\.dev$|^https://.*\.ngrok\.app$|^https://.*\.ngrok\.io$|^https://.*\.loca\.lt$",
 )
 
 # CORS Middleware allowing localhost frontend portals and mobile tunneling tools
@@ -45,7 +51,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "https://sahayak.com",
     ],
-    allow_origin_regex=r"^https://.*\.ngrok-free\.app$|^https://.*\.ngrok\.io$|^https://.*\.loca\.lt$",
+    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +82,7 @@ app.include_router(
 )
 app.include_router(news_report_router)
 app.include_router(public_feed_router)
+app.include_router(geo_router)
 app.include_router(donation_router)
 
 

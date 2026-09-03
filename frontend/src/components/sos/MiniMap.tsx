@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { Crosshair, AlertCircle, CheckCircle2, RefreshCw, MapPin, WifiOff, X } from 'lucide-react';
 import type { SOSLocation } from '@/types/sos';
-import { getRobustCoordinates } from '@/hooks/useGeolocation';
+import { getRealCoordinates } from '@/services/geolocation';
 
 export interface MiniMapProps {
   mode?: 'live' | 'pick';
@@ -39,8 +40,37 @@ const MAP_STYLE = {
   ],
 };
 
-// National Center of India (Nagpur overview for nationwide view before location is acquired)
-const DEFAULT_FALLBACK_COORDS = { lat: 20.5937, lng: 78.9629 };
+// Wide national overview center (camera viewpoint ONLY when location has not been acquired yet — NO marker placed)
+const INITIAL_OVERVIEW_CENTER = { lat: 20.5937, lng: 78.9629 };
+
+/**
+ * Creates high-contrast, fully visible marker DOM elements for MapLibre.
+ * Live mode: pulsating blue GPS beacon ring and center dot.
+ * Pick mode: bright red map pin with drop shadow.
+ */
+function renderMarkerContent(el: HTMLElement, mode: 'live' | 'pick') {
+  if (mode === 'live') {
+    el.className = 'live-gps-marker';
+    el.style.cursor = 'default';
+    el.innerHTML = `
+      <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 32px; height: 32px; border-radius: 50%; background-color: rgba(11, 61, 110, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="position: relative; width: 16px; height: 16px; border-radius: 50%; background-color: #0B3D6E; border: 3px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.45);"></div>
+      </div>
+    `;
+  } else {
+    el.className = 'pin-selection-marker';
+    el.style.cursor = 'grab';
+    el.innerHTML = `
+      <div style="position: relative; width: 36px; height: 40px; display: flex; align-items: center; justify-content: center; transform: translate(0, -14px);">
+        <svg width="34" height="38" viewBox="0 0 24 24" fill="none" stroke="#7F1D1D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#DC2626"/>
+          <circle cx="12" cy="10" r="3" fill="#FFFFFF"/>
+        </svg>
+      </div>
+    `;
+  }
+}
 
 export const MiniMap: React.FC<MiniMapProps> = ({
   mode = 'live',
@@ -55,6 +85,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<MapLibreMarker | null>(null);
+  const maplibreglRef = useRef<any>(null);
+  const latestLocationRef = useRef<SOSLocation | null>(location);
+  latestLocationRef.current = location;
+
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isLocatingSelf, setIsLocatingSelf] = useState<boolean>(false);
@@ -85,23 +119,141 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     }
   }, []);
 
+  // Helper to attach or update marker
+  const syncMarker = (mapInstance: MapLibreMap, targetLng: number, targetLat: number) => {
+    if (markerRef.current) {
+      markerRef.current.setLngLat([targetLng, targetLat]);
+      return;
+    }
+
+    const MarkerConstructor = maplibreglRef.current?.Marker || (window as any).maplibregl?.Marker;
+    if (!MarkerConstructor) {
+      return;
+    }
+
+    const el = document.createElement('div');
+    renderMarkerContent(el, mode);
+
+    const marker = new MarkerConstructor({
+      element: el,
+      draggable: mode === 'pick',
+    })
+      .setLngLat([targetLng, targetLat])
+      .addTo(mapInstance);
+
+    if (mode === 'pick') {
+      marker.on('dragend', () => {
+        const lngLat = marker.getLngLat();
+        setInternalLocationError(null);
+        if (onLocationChange) {
+          onLocationChange({
+            lat: Number(lngLat.lat.toFixed(6)),
+            lng: Number(lngLat.lng.toFixed(6)),
+            accuracy: 5,
+            isFallback: false,
+          });
+        }
+      });
+    }
+
+    markerRef.current = marker;
+  };
+
+  // Helper to apply real coordinates to THIS map instance (center + marker)
+  const applyLocationToMap = (targetLng: number, targetLat: number, shouldFly: boolean = false) => {
+    if (!mapRef.current) return;
+
+    syncMarker(mapRef.current, targetLng, targetLat);
+    mapRef.current.resize();
+
+    if (shouldFly && mapLoaded) {
+      mapRef.current.flyTo({
+        center: [targetLng, targetLat],
+        zoom: 15,
+        essential: true,
+        duration: 800,
+      });
+    } else {
+      mapRef.current.setCenter([targetLng, targetLat]);
+      mapRef.current.setZoom(15);
+    }
+  };
+
+  // Unified GPS acquisition trigger used by both mode="live" and mode="pick"
+  const handleAcquireCurrentLocation = async () => {
+    if (typeof window === 'undefined') return;
+
+    if (mode === 'pick') {
+      console.log('pick mode: use current location clicked');
+    }
+
+    // In live mode with parent refresh callback, delegate directly
+    if (mode === 'live' && onRefreshLocation) {
+      onRefreshLocation();
+      return;
+    }
+
+    setIsLocatingSelf(true);
+    setInternalLocationError(null);
+
+    try {
+      // 1. Fetch real GPS coordinates using shared authoritative function
+      const coords = await getRealCoordinates();
+      if (mode === 'pick') {
+        console.log('pick mode: got coordinates', coords.lat, coords.lng);
+      }
+      setIsLocatingSelf(false);
+      setInternalLocationError(null);
+
+      // 2. Immediately apply to THIS map instance (center map + drop marker)
+      applyLocationToMap(coords.lng, coords.lat, true);
+
+      // 3. Notify parent of new coordinates
+      if (onLocationChange) {
+        onLocationChange({
+          lat: coords.lat,
+          lng: coords.lng,
+          accuracy: coords.accuracy,
+          isFallback: false,
+        });
+      }
+    } catch (err: any) {
+      setIsLocatingSelf(false);
+      const errorMsg = err?.message || 'Location unavailable.';
+      setInternalLocationError(errorMsg);
+    }
+  };
+
   // Initialize MapLibre instance once when online
   useEffect(() => {
     let isMounted = true;
+    let resizeObserver: ResizeObserver | null = null;
+
+    const handleFullscreenChange = () => {
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.resize();
+        }
+      }, 100);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     async function initMap() {
       if (!mapContainerRef.current || mapRef.current) return;
       if (typeof window !== 'undefined' && !navigator.onLine) {
-        return; // Don't try loading tile server when completely offline
+        return;
       }
 
       try {
         const maplibregl = await import('maplibre-gl');
+        maplibreglRef.current = maplibregl;
+        (window as any).maplibregl = maplibregl;
 
-        const initialLat = location?.lat ?? DEFAULT_FALLBACK_COORDS.lat;
-        const initialLng = location?.lng ?? DEFAULT_FALLBACK_COORDS.lng;
-        // If unconfirmed fallback, use pan-India zoom 4.5; if resolved, zoom in to 14
-        const initialZoom = location && !location.isFallback ? 14 : 4.5;
+        const activeLoc = latestLocationRef.current;
+        const hasRealLocation = activeLoc && !activeLoc.isFallback;
+        const initialLat = hasRealLocation ? activeLoc.lat : INITIAL_OVERVIEW_CENTER.lat;
+        const initialLng = hasRealLocation ? activeLoc.lng : INITIAL_OVERVIEW_CENTER.lng;
+        const initialZoom = hasRealLocation ? 15 : 4.5;
 
         const map = new maplibregl.Map({
           container: mapContainerRef.current,
@@ -111,66 +263,49 @@ export const MiniMap: React.FC<MiniMapProps> = ({
           attributionControl: false,
         });
 
-        // Built-in MapLibre NavigationControl with native compass on top-right overlay
+        mapRef.current = map;
+
+        if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+          resizeObserver = new ResizeObserver(() => {
+            if (mapRef.current) {
+              mapRef.current.resize();
+            }
+          });
+          resizeObserver.observe(mapContainerRef.current);
+        }
+
         map.addControl(
           new maplibregl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }),
           'top-right'
         );
-
-        // Built-in MapLibre FullscreenControl for expandable map view
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
-
-        // Ensure map resizes smoothly when toggled to/from fullscreen
-        map.on('resize', () => {
-          map.resize();
-        });
 
         map.on('load', () => {
           if (!isMounted) return;
-          mapRef.current = map;
+          map.resize();
           setMapLoaded(true);
           setMapError(null);
 
-          // Create marker element
-          const el = document.createElement('div');
-          el.className = mode === 'live' ? 'live-gps-marker' : 'pin-selection-marker';
-          
-          const marker = new maplibregl.Marker({
-            element: el,
-            draggable: mode === 'pick',
-          })
-            .setLngLat([initialLng, initialLat])
-            .addTo(map);
-
-          if (mode === 'pick') {
-            marker.on('dragend', () => {
-              const lngLat = marker.getLngLat();
-              setInternalLocationError(null);
-              if (onLocationChange) {
-                onLocationChange({
-                  lat: Number(lngLat.lat.toFixed(6)),
-                  lng: Number(lngLat.lng.toFixed(6)),
-                  accuracy: 5,
-                  isFallback: false,
-                });
-              }
-            });
+          const currentLoc = latestLocationRef.current;
+          if (currentLoc && !currentLoc.isFallback) {
+            // Place marker and center strictly at real location
+            applyLocationToMap(currentLoc.lng, currentLoc.lat, false);
           }
-
-          markerRef.current = marker;
         });
 
-        // Click handler for mode="pick" (tap-to-pin)
+        // Click handler for mode="pick" (manual tap-to-pin)
         map.on('click', (e) => {
           if (mode === 'pick' && onLocationChange) {
             const { lng, lat } = e.lngLat;
             setInternalLocationError(null);
-            if (markerRef.current) {
-              markerRef.current.setLngLat([lng, lat]);
-            }
+            const newLat = Number(lat.toFixed(6));
+            const newLng = Number(lng.toFixed(6));
+
+            syncMarker(map, newLng, newLat);
+
             onLocationChange({
-              lat: Number(lat.toFixed(6)),
-              lng: Number(lng.toFixed(6)),
+              lat: newLat,
+              lng: newLng,
               accuracy: 5,
               isFallback: false,
             });
@@ -197,6 +332,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
     return () => {
       isMounted = false;
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (markerRef.current) {
         markerRef.current.remove();
         markerRef.current = null;
@@ -210,84 +349,31 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
   // Update marker position and map center when location prop changes
   useEffect(() => {
-    if (!mapRef.current || !location) return;
+    latestLocationRef.current = location;
+    if (!mapRef.current) return;
 
-    const { lat, lng } = location;
-    if (markerRef.current) {
-      markerRef.current.setLngLat([lng, lat]);
+    // If location is null or marked fallback, remove marker and do not show pin
+    if (!location || location.isFallback) {
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      return;
     }
 
-    if (mapLoaded && mapRef.current) {
-      const targetZoom = location.isFallback ? 4.5 : 15;
-      mapRef.current.flyTo({
-        center: [lng, lat],
-        zoom: targetZoom,
-        essential: true,
-        duration: 800,
-      });
-    }
-  }, [location?.lat, location?.lng, location?.isFallback, mapLoaded]);
+    applyLocationToMap(location.lng, location.lat, mapLoaded);
+  }, [location?.lat, location?.lng, location?.isFallback, mapLoaded, mode]);
 
-  // Update marker properties when mode changes
+  // Update marker styling and draggability when mode changes
   useEffect(() => {
     if (markerRef.current) {
       const el = markerRef.current.getElement();
       if (el) {
-        el.className = mode === 'live' ? 'live-gps-marker' : 'pin-selection-marker';
+        renderMarkerContent(el, mode);
       }
       markerRef.current.setDraggable(mode === 'pick');
     }
   }, [mode]);
-
-  // Helper to trigger GPS acquisition in pick mode
-  const handlePinCurrentLocation = () => {
-    if (typeof window === 'undefined') return;
-    if (onRefreshLocation) {
-      onRefreshLocation();
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
-
-    setIsLocatingSelf(true);
-    setInternalLocationError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsLocatingSelf(false);
-        if (onLocationChange) {
-          onLocationChange({
-            lat: Number(position.coords.latitude.toFixed(6)),
-            lng: Number(position.coords.longitude.toFixed(6)),
-            accuracy: position.coords.accuracy,
-            isFallback: false,
-          });
-        }
-        setInternalLocationError(null);
-      },
-      (error) => {
-        setIsLocatingSelf(false);
-        let errorMsg = 'An unknown error occurred while fetching location.';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMsg = 'Location permission denied. Please enable it in your browser settings.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMsg = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMsg = 'The request to get user location timed out.';
-            break;
-        }
-        alert(errorMsg);
-        setInternalLocationError(errorMsg);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
-  };
 
   const isMapOffline = !isOnline || Boolean(mapError);
 
@@ -363,7 +449,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
               <div className="text-xs font-mono text-amber-300">
                 {isCurrentlyLocating
                   ? 'Getting your location from GPS / Network...'
-                  : 'GPS location not locked. Tap below to acquire coordinates.'}
+                  : 'GPS location unavailable. Tap below to acquire coordinates.'}
               </div>
             )}
           </div>
@@ -375,7 +461,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
             <button
               type="button"
-              onClick={mode === 'live' ? onRefreshLocation : handlePinCurrentLocation}
+              onClick={handleAcquireCurrentLocation}
               disabled={isCurrentlyLocating}
               className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-400/30 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
             >
@@ -422,11 +508,16 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   <RefreshCw className="w-3.5 h-3.5 text-[#0B3D6E] animate-spin" />
                   <span className="text-[#0B3D6E] font-semibold">Getting your location...</span>
                 </>
-              ) : location?.isFallback || !location ? (
+              ) : activeLocationError && !location ? (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                  <span className="font-semibold text-amber-800">Location unavailable</span>
+                </>
+              ) : !location || location.isFallback ? (
                 <>
                   <Crosshair className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
                   <span className="font-semibold text-amber-800">
-                    {mode === 'pick' ? 'Tap map to pin location' : 'National overview'}
+                    {mode === 'pick' ? 'Tap map to pin location' : 'Location unavailable'}
                   </span>
                 </>
               ) : (
@@ -444,11 +535,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({
               )}
             </div>
 
-            {/* Action Buttons */}
-            {mode === 'live' && onRefreshLocation && (
+            {/* Unified Action Button for both live and pick modes */}
+            {(onRefreshLocation || onLocationChange) && (
               <button
                 type="button"
-                onClick={onRefreshLocation}
+                onClick={handleAcquireCurrentLocation}
                 disabled={isCurrentlyLocating}
                 className="pointer-events-auto bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-900 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 title="Acquire current GPS position"
@@ -465,30 +556,6 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                   </>
                 )}
               </button>
-            )}
-
-            {mode === 'pick' && (
-              <div className="flex items-center gap-2 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={handlePinCurrentLocation}
-                  disabled={isCurrentlyLocating}
-                  className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-semibold px-3 py-1.5 rounded-sm border border-blue-900 shadow flex items-center gap-1.5 transition-colors disabled:opacity-60"
-                  title="Auto-fill pin from device GPS location"
-                >
-                  {isCurrentlyLocating ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
-                      <span>Getting your location...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Use Current Location</span>
-                    </>
-                  )}
-                </button>
-              </div>
             )}
           </div>
         </>

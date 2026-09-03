@@ -21,7 +21,7 @@ import type {
   RegistrationResponse 
 } from '@/types/registration';
 import { submitRegistration } from '@/services/registration';
-import { getRobustCoordinates } from '@/hooks/useGeolocation';
+import { getRealCoordinates } from '@/services/geolocation';
 
 const STEPS = [
   { id: 1, title: 'Identity Verification', sub: 'Phone & Aadhaar' },
@@ -29,11 +29,7 @@ const STEPS = [
   { id: 3, title: 'Medical & Family', sub: 'Triage & Dependents' },
 ];
 
-// Fallback National Center (Nagpur, India)
-const DEFAULT_COORDS: CitizenLocation = {
-  lat: 20.5937,
-  lng: 78.9629,
-};
+
 
 export const RegistrationWizard: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -53,16 +49,14 @@ export const RegistrationWizard: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [age, setAge] = useState<number | ''>('');
   const [gender, setGender] = useState<string>('Male');
-  const [homeLocation, setHomeLocation] = useState<CitizenLocation>(DEFAULT_COORDS);
-  const [isHomeLocationFallback, setIsHomeLocationFallback] = useState<boolean>(true);
+  const [homeLocation, setHomeLocation] = useState<CitizenLocation | null>(null);
   const [workLocation, setWorkLocation] = useState<CitizenLocation | null>(null);
 
-  // Auto-acquire background location on mount
+  // Auto-acquire background real location on mount
   React.useEffect(() => {
-    getRobustCoordinates()
+    getRealCoordinates()
       .then((coords) => {
         setHomeLocation({ lat: coords.lat, lng: coords.lng });
-        setIsHomeLocationFallback(false);
       })
       .catch((err) => {
         // User can manually pin in Step 2 or click "Use Current Location"
@@ -117,6 +111,10 @@ export const RegistrationWizard: React.FC = () => {
         setStepError('Please select your gender.');
         return;
       }
+      if (!homeLocation) {
+        setStepError('Please allow location access or tap the map to pin your home location.');
+        return;
+      }
       setCurrentStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -135,6 +133,11 @@ export const RegistrationWizard: React.FC = () => {
     setStepError(null);
 
     // Validation for Step 3
+    if (!homeLocation) {
+      setStepError('Please set your home location before completing registration.');
+      return;
+    }
+
     if (!bloodGroup) {
       setStepError('Please select your blood group.');
       return;
@@ -190,7 +193,7 @@ export const RegistrationWizard: React.FC = () => {
     name: name.trim(),
     age: typeof age === 'number' ? age : 30,
     gender,
-    home_location: homeLocation,
+    home_location: homeLocation || { lat: 0, lng: 0 },
     work_location: workLocation,
     blood_group: bloodGroup,
     long_term_diseases: longTermDiseases,
@@ -307,9 +310,7 @@ export const RegistrationWizard: React.FC = () => {
             homeLocation={homeLocation}
             onHomeLocationChange={(loc) => {
               setHomeLocation(loc);
-              setIsHomeLocationFallback(false);
             }}
-            isHomeLocationFallback={isHomeLocationFallback}
             workLocation={workLocation}
             onWorkLocationChange={setWorkLocation}
           />

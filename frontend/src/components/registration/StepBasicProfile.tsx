@@ -5,6 +5,7 @@ import type { CitizenLocation } from '@/types/registration';
 import type { SOSLocation } from '@/types/sos';
 
 import type { MiniMapProps } from '@/components/sos/MiniMap';
+import { getRealCoordinates } from '@/services/geolocation';
 
 const MiniMap = dynamic<MiniMapProps>(
   () => import('@/components/sos/MiniMap').then((mod) => mod.MiniMap),
@@ -26,9 +27,8 @@ interface StepBasicProfileProps {
   onAgeChange: (val: number | '') => void;
   gender: string;
   onGenderChange: (val: string) => void;
-  homeLocation: CitizenLocation;
+  homeLocation: CitizenLocation | null;
   onHomeLocationChange: (loc: CitizenLocation) => void;
-  isHomeLocationFallback?: boolean;
   workLocation: CitizenLocation | null;
   onWorkLocationChange: (loc: CitizenLocation | null) => void;
   error?: string | null;
@@ -43,60 +43,52 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
   onGenderChange,
   homeLocation,
   onHomeLocationChange,
-  isHomeLocationFallback = false,
   workLocation,
   onWorkLocationChange,
   error,
 }) => {
   const [showWorkLocation, setShowWorkLocation] = useState<boolean>(Boolean(workLocation));
   const [isFetchingLocation, setIsFetchingLocation] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  const handleFetchLocation = () => {
+  const handleFetchLocation = async () => {
     if (typeof window === 'undefined') return;
 
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
-
+    console.log('StepBasicProfile: Use Current Location clicked');
     setIsFetchingLocation(true);
+    setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsFetchingLocation(false);
-        onHomeLocationChange({
-          lat: Number(position.coords.latitude.toFixed(6)),
-          lng: Number(position.coords.longitude.toFixed(6)),
-        });
-      },
-      (error) => {
-        setIsFetchingLocation(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            alert('Location permission denied. Please enable it in your browser settings.');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            alert('Location information is unavailable.');
-            break;
-          case error.TIMEOUT:
-            alert('The request to get user location timed out.');
-            break;
-          default:
-            alert('An unknown error occurred while fetching location.');
-            break;
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+    try {
+      const coords = await getRealCoordinates();
+      console.log('StepBasicProfile: got coordinates', coords.lat, coords.lng);
+      setIsFetchingLocation(false);
+      setLocationError(null);
+      onHomeLocationChange({
+        lat: coords.lat,
+        lng: coords.lng,
+      });
+    } catch (err: any) {
+      setIsFetchingLocation(false);
+      setLocationError(err?.message || 'Location unavailable. Please tap on the map to pin.');
+    }
   };
+
+  // Automatically trigger location detection on mount if not yet acquired
+  React.useEffect(() => {
+    if (!homeLocation && !isFetchingLocation) {
+      handleFetchLocation();
+    }
+  }, []);
 
   // Convert CitizenLocation to SOSLocation format for MiniMap
-  const homeSosLocation: SOSLocation = {
-    lat: homeLocation.lat,
-    lng: homeLocation.lng,
-    accuracy: isHomeLocationFallback ? undefined : 5,
-    isFallback: isHomeLocationFallback,
-  };
+  const homeSosLocation: SOSLocation | null = homeLocation
+    ? {
+        lat: homeLocation.lat,
+        lng: homeLocation.lng,
+        accuracy: 5,
+        isFallback: false,
+      }
+    : null;
 
   const workSosLocation: SOSLocation | null = workLocation
     ? {
@@ -112,11 +104,12 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
     if (!enable) {
       onWorkLocationChange(null);
     } else {
-      // Default to slight offset from home for easy identification
-      onWorkLocationChange({
-        lat: Number((homeLocation.lat + 0.015).toFixed(6)),
-        lng: Number((homeLocation.lng + 0.015).toFixed(6)),
-      });
+      if (homeLocation) {
+        onWorkLocationChange({
+          lat: Number((homeLocation.lat + 0.015).toFixed(6)),
+          lng: Number((homeLocation.lng + 0.015).toFixed(6)),
+        });
+      }
     }
   };
 
@@ -239,7 +232,11 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
               <span>{isFetchingLocation ? 'Fetching Location...' : 'Use Current Location'}</span>
             </button>
             <span className="text-[11px] font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-              {homeLocation.lat.toFixed(4)}°N, {homeLocation.lng.toFixed(4)}°E
+              {homeLocation
+                ? `${homeLocation.lat.toFixed(4)}°N, ${homeLocation.lng.toFixed(4)}°E`
+                : isFetchingLocation
+                ? 'Detecting...'
+                : 'Location unavailable'}
             </span>
           </div>
         </div>
@@ -252,10 +249,12 @@ export const StepBasicProfile: React.FC<StepBasicProfileProps> = ({
           mode="pick"
           location={homeSosLocation}
           onLocationChange={(loc) => {
+            setLocationError(null);
             onHomeLocationChange({ lat: loc.lat, lng: loc.lng });
           }}
           onRefreshLocation={handleFetchLocation}
           isLoadingLocation={isFetchingLocation}
+          locationError={locationError}
           label="Home Residence (Tap to Reposition Pin)"
         />
       </div>

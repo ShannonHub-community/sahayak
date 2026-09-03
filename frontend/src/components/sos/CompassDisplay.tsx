@@ -168,6 +168,16 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
   // Initialize MapLibre with built-in NavigationControl compass and FullscreenControl
   useEffect(() => {
     let isMounted = true;
+    let resizeObserver: ResizeObserver | null = null;
+
+    const handleFullscreenChange = () => {
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.resize();
+        }
+      }, 100);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     async function initMap() {
       if (!mapContainerRef.current || mapRef.current) return;
@@ -186,6 +196,19 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
           attributionControl: false,
         });
 
+        // Retain map instance immediately
+        mapRef.current = map;
+
+        // Auto-resize whenever the container layout shifts
+        if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+          resizeObserver = new ResizeObserver(() => {
+            if (mapRef.current) {
+              mapRef.current.resize();
+            }
+          });
+          resizeObserver.observe(mapContainerRef.current);
+        }
+
         // Built-in MapLibre NavigationControl with native compass on top-right of the map
         const navControl = new maplibregl.NavigationControl({
           showCompass: true,
@@ -197,13 +220,9 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
         // Built-in MapLibre FullscreenControl for expandable shelter map
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
-        map.on('resize', () => {
-          map.resize();
-        });
-
         map.on('load', () => {
           if (!isMounted) return;
-          mapRef.current = map;
+          map.resize();
           setMapLoaded(true);
 
           // Add markers for all Panvel sample shelters
@@ -230,10 +249,6 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
               .setPopup(popup)
               .addTo(map);
 
-            if (isAssigned) {
-              marker.togglePopup();
-            }
-
             markersRef.current.push(marker);
           });
         });
@@ -258,6 +273,10 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
 
     return () => {
       isMounted = false;
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       if (mapRef.current) {

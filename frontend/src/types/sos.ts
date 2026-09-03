@@ -3,6 +3,8 @@ export interface SOSLocation {
   lng: number;
   accuracy?: number;
   isFallback?: boolean;
+  isApproximate?: boolean;
+  city?: string;
 }
 
 export interface NearestShelter {
