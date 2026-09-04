@@ -73,7 +73,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               onSkipToContent();
             }
           }}
-          className="skip-link"
+          className="skip-link text-black"
         >
           Skip to main content / मुख्य सामग्री पर जाएं
         </a>
