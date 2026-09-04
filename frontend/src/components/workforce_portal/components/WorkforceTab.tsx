@@ -169,7 +169,7 @@ export default function WorkforceConsole({ onSelectOfficer }: WorkforceConsolePr
       </div>
 
       {selectedIncident && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0  bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
           <div className="bg-white border border-[#D7DEE7] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl text-xs">
             <div className="border-b border-[#D7DEE7] pb-3 flex items-center justify-between">
               <h3 className="font-bold text-sm text-[#1F3A5F]">Approve Emergency Dispatch</h3>

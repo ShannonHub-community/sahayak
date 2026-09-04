@@ -16,8 +16,8 @@ import { Layers, Building, ShieldCheck } from 'lucide-react';
 export const DonationCoordinatorTab = () => {
   const { selectedSector, setSelectedSector, requests, inventory, certificates } = useLedger();
 
-  const pendingRequestsCount = requests.filter((r) => r.requestStatus === 'Pending').length;
-  const approvedRequestsCount = requests.filter((r) => r.requestStatus === 'Approved').length;
+  const pendingRequestsCount = (requests || []).filter((r) => r?.requestStatus === 'Pending').length;
+  const approvedRequestsCount = (requests || []).filter((r) => r?.requestStatus === 'Approved').length;
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] gap-4 animate-in fade-in duration-200">
@@ -46,7 +46,7 @@ export const DonationCoordinatorTab = () => {
               onChange={(e) => setSelectedSector(e.target.value)}
               className="bg-slate-50 border border-slate-300 text-slate-900 font-semibold rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
             >
-              {LOCATIONS.map((loc) => (
+              {(LOCATIONS || []).map((loc) => (
                 <option key={loc} value={loc}>
                   {loc}
                 </option>

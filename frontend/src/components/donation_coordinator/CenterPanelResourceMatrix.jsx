@@ -23,15 +23,16 @@ export const CenterPanelResourceMatrix = () => {
     { id: 'Infrastructure', label: 'Infrastructure', icon: Home }
   ];
 
-  // Filter inventory
-  const filteredInventory = inventory.filter(item => {
+  // Filter inventory — guard against undefined fields so bad data never crashes the table
+  const filteredInventory = (inventory || []).filter(item => {
+    if (!item) return false;
     const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
     const matchesStatus = inventoryStatusFilter === 'All' || item.status === inventoryStatusFilter;
-    const matchesSector = selectedSector === 'All Sectors' || item.location.includes(selectedSector);
+    const matchesSector = selectedSector === 'All Sectors' || (item.location || '').includes(selectedSector);
     const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.location || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesCategory && matchesStatus && matchesSector && matchesSearch;
   });
@@ -137,13 +138,18 @@ export const CenterPanelResourceMatrix = () => {
                 </td>
               </tr>
             ) : (
-              filteredInventory.map((item) => {
+              (filteredInventory || []).map((item) => {
                 const isShelter = item.category === 'Infrastructure' || item.capacity;
                 const isUpdated = item.id === lastUpdatedInventoryId;
-                const occupancyPercent = isShelter ? Math.round((item.occupancy / item.capacity) * 100) : 0;
+                const total = item.total ?? 0;
+                const available = item.available ?? 0;
+                const deployed = item.deployed ?? 0;
+                const occupancy = item.occupancy ?? item.currentOccupancy ?? 0;
+                const capacity = item.capacity ?? 1; // avoid division by zero
+                const occupancyPercent = isShelter ? Math.round((occupancy / capacity) * 100) : 0;
 
-                const isDepleted = item.status === 'Depleted' || item.available <= 15;
-                const isDeployedHeavy = item.deployed > item.available;
+                const isDepleted = item.status === 'Depleted' || available <= 15;
+                const isDeployedHeavy = deployed > available;
 
                 return (
                   <tr
@@ -175,17 +181,17 @@ export const CenterPanelResourceMatrix = () => {
 
                     {/* Total */}
                     <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-800">
-                      {item.total.toLocaleString()}
+                      {item.total ? item.total.toLocaleString() : '0'}
                     </td>
 
                     {/* Available */}
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                      {item.available.toLocaleString()}
+                      {item.available ? item.available.toLocaleString() : '0'}
                     </td>
 
                     {/* Deployed */}
                     <td className="py-2.5 px-3 text-right font-mono font-medium text-blue-700">
-                      {item.deployed.toLocaleString()}
+                      {item.deployed ? item.deployed.toLocaleString() : '0'}
                     </td>
 
                     {/* Capacity vs Occupancy for Shelters or Stock Bar for Supplies */}
@@ -193,7 +199,7 @@ export const CenterPanelResourceMatrix = () => {
                       {isShelter ? (
                         <div>
                           <div className="flex justify-between text-[10px] text-slate-600 mb-0.5 font-semibold">
-                            <span>Occupancy: {item.occupancy}/{item.capacity}</span>
+                            <span>Occupancy: {occupancy}/{capacity}</span>
                             <span className={occupancyPercent > 80 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
                               {occupancyPercent}%
                             </span>
@@ -214,14 +220,14 @@ export const CenterPanelResourceMatrix = () => {
                       ) : (
                         <div>
                           <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                            <span>Avail ratio: {Math.round((item.available / item.total) * 100)}%</span>
+                            <span>Avail ratio: {total > 0 ? Math.round((available / total) * 100) : 0}%</span>
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                             <div
                               className={`h-full rounded-full ${
-                                item.available < 20 ? 'bg-rose-500' : 'bg-blue-600'
+                                available < 20 ? 'bg-rose-500' : 'bg-blue-600'
                               }`}
-                              style={{ width: `${Math.min(100, Math.round((item.available / item.total) * 100))}%` }}
+                              style={{ width: `${total > 0 ? Math.min(100, Math.round((available / total) * 100)) : 0}%` }}
                             />
                           </div>
                         </div>
