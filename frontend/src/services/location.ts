@@ -25,13 +25,7 @@ export async function getStateFromCoordinates(
         body: JSON.stringify({ lat, lng }),
       });
     } catch {
-      if (!apiBase) {
-        res = await fetch('http://localhost:8000/api/geo/state-lookup', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ lat, lng }),
-        }).catch(() => null);
-      }
+      // fetch failed; will fall through to error handling below
     }
 
     if (!res || !res.ok) {

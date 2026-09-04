@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useTwinStore } from '@/store/twinStore';
 import { TwinDiffPayload, TwinMapState } from '../types';
 
-const DEFAULT_WS_URL = 'ws://localhost:8000/api/twin_aggregator/ws';
+const DEFAULT_WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+  .replace(/^http/, 'ws') + '/api/twin_aggregator/ws';
 
 export function useTwinWebsocket(url?: string) {
   const wsUrl = url || process.env.NEXT_PUBLIC_WS_URL || DEFAULT_WS_URL;

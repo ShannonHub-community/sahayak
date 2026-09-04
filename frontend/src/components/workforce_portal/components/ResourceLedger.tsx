@@ -45,7 +45,8 @@ export default function ResourceLedger() {
     };
 
     // Try posting to backend API as well
-    fetch("http://localhost:8000/api/v1/resources", {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+    fetch(`${apiBase}/api/v1/resources`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newItem),

@@ -40,7 +40,7 @@ app = FastAPI(
 
 allowed_origin_regex = os.getenv(
     "ALLOWED_ORIGIN_REGEX",
-    r"^https://.*\.ngrok-free\.app$|^https://.*\.ngrok-free\.dev$|^https://.*\.ngrok\.app$|^https://.*\.ngrok\.io$|^https://.*\.loca\.lt$",
+    r"^https://.*\.ngrok-free\.app$|^https://.*\.ngrok-free\.dev$|^https://.*\.ngrok\.app$|^https://.*\.ngrok\.io$|^https://.*\.loca\.lt$|^https://.*\.onrender\.com$",
 )
 
 # CORS Middleware allowing localhost frontend portals and mobile tunneling tools
@@ -50,6 +50,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://sahayak.com",
+        "https://sahayak-frontend.onrender.com",
     ],
     allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
@@ -107,3 +108,13 @@ async def health_check():
             "donation-coordinator",
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Entry Point — binds to Render's dynamic $PORT (defaults to 8000 locally)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

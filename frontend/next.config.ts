@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -7,7 +8,11 @@ const nextConfig: NextConfig = {
     "*.ngrok-free.app",
     "*.ngrok.io",
     "*.loca.lt",
+    "*.onrender.com",
   ],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   async rewrites() {
     const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
     return [

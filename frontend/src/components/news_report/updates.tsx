@@ -120,7 +120,6 @@ export default function UpdatesPage() {
       setIsTranslating(true);
       try {
         const result = await translateAlerts(currentAlerts, selectedLanguage);
-        console.log('[DEBUG] translateAlerts() raw response map:', result);
         if (!isCancelled) {
           setTranslatedMap(result);
         }

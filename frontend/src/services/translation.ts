@@ -58,7 +58,6 @@ export async function translateAlerts(
   };
 
   try {
-    console.log('[DEBUG] Calling POST /api/comms/translate with payload:', payload);
     const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -72,24 +71,14 @@ export async function translateAlerts(
         body: JSON.stringify(payload),
       });
     } catch (fetchErr) {
-      console.warn('[DEBUG] Fetch to apiBase failed:', fetchErr);
-      if (!apiBase) {
-        res = await fetch('http://localhost:8000/api/comms/translate', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-        }).catch(() => null);
-      }
+      console.warn('Fetch to translation endpoint failed:', fetchErr);
     }
-
-    console.log('[DEBUG] POST /api/comms/translate status:', res?.status, res?.statusText);
 
     if (!res || !res.ok) {
       throw new Error(`Translation endpoint failed: ${res ? res.status + ' ' + res.statusText : 'Network error'}`);
     }
 
     const data: TranslationResponse = await res.json();
-    console.log('[DEBUG] POST /api/comms/translate body:', data);
     const map: TranslatedAlertsMap = {};
 
     if (Array.isArray(data.items)) {
