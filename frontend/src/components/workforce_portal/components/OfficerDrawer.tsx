@@ -78,7 +78,8 @@ export default function OfficerDrawer({ officer: initialOfficer, isOpen, onClose
     setOfficer(updatedOfficer);
 
     // Call backend API if available
-    fetch(`http://localhost:8000/api/v1/officers/${officer.id}/status`, {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+    fetch(`${apiBase}/api/v1/officers/${officer.id}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sector: newSector, status: newStatus }),

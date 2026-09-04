@@ -83,9 +83,7 @@ export const alertsFetcher = async (endpoint: string): Promise<PublicAlert[]> =>
   try {
     res = await fetch(`${apiBase}${endpoint}`, { headers });
   } catch {
-    if (!apiBase) {
-      res = await fetch(`http://localhost:8000${endpoint}`, { headers }).catch(() => null);
-    }
+    // fetch failed; will fall through to error handling below
   }
 
   if (!res || !res.ok) {

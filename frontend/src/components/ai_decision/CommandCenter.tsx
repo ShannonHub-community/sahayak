@@ -104,7 +104,7 @@ interface ChatMessage {
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const API_BASE = "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 const MOCK_OFFICER_ID = "officer-id-123";
 
 const SOS_ENTITY_TYPES = new Set(["sos_report", "sos"]);

@@ -84,21 +84,40 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
 
   // 1. Initial Device Recognition check on mount
   useEffect(() => {
+    // Safety-net: forcefully release the loading guard after 5 s, regardless of
+    // backend availability. Prevents permanent UI blockage on slow/offline starts.
+    const timeoutId = setTimeout(() => {
+      setIsLoadingProfile((prev) => {
+        if (prev) {
+          console.warn('[SOSForm] Profile lookup timed out after 5 s — continuing without autofill.');
+        }
+        return false;
+      });
+    }, 5000);
+
     async function checkRecognition() {
       setIsLoadingProfile(true);
       const id = getBrowserIdentifier();
       setBrowserId(id);
 
       if (id) {
-        const foundProfile = await lookupCitizenProfile(id);
-        if (foundProfile) {
-          setProfile(foundProfile);
+        try {
+          const foundProfile = await lookupCitizenProfile(id);
+          if (foundProfile) {
+            setProfile(foundProfile);
+          }
+        } catch (err) {
+          console.warn('[SOSForm] Profile lookup failed — falling back to manual entry.', err);
         }
       }
+
+      clearTimeout(timeoutId);
       setIsLoadingProfile(false);
     }
 
     checkRecognition();
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // 2. Geolocation acquisition

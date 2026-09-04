@@ -1,8 +1,6 @@
 // Socket.IO Client listener for Day 3 realtime pipeline
 export function setupSocketListener(onNewIncident: (data: any) => void) {
-  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
-
-  console.log(`[Day 3 Sockets] Connecting to Socket.IO stream at ${socketUrl}...`);
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
   // Mock socket event simulation if real socket backend is starting up
   const mockTimer = setInterval(() => {
