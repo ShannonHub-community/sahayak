@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import AICopilotSidebar from "../components/AICopilotSidebar";
-import WorkforceTab from "../components/WorkforceTab";
+import WorkforceDashboard from "../components/WorkforceDashboard";
 import ResourceLedger from "../components/ResourceLedger";
 
 const MapView = dynamic(() => import("../components/MapView"), {
@@ -140,7 +140,7 @@ export default function Page() {
             <AICopilotSidebar />
           </div>
         ) : activeTab === "workforce" ? (
-          <WorkforceTab />
+          <WorkforceDashboard />
         ) : (
           <ResourceLedger />
         )}

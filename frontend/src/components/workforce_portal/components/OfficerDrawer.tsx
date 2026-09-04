@@ -136,17 +136,17 @@ export default function OfficerDrawer({ officer: initialOfficer, isOpen, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0  z-[9999] overflow-hidden" style={{ zIndex: 9999 }}>
       {/* Semi-transparent backdrop - Clicking closes drawer */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0  bg-slate-900/50 backdrop-blur-xs transition-opacity " style={{ zIndex: 9999 }}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Slide-in Drawer Container (~400px wide from right) */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-[#D7DEE7] shadow-2xl flex flex-col justify-between text-slate-800 font-sans z-10 animate-in slide-in-from-right duration-300">
+      <div className="fixed inset-y-0  right-0 max-w-full flex pl-10" style={{ zIndex: 9999 }}>
+        <div className="w-screen max-w-md bg-white border-l border-[#D7DEE7] shadow-2xl flex flex-col justify-between text-slate-800 font-sans z-10 ">
           
           {/* Header */}
           <div className="p-5 bg-[#1F3A5F] text-white flex items-center justify-between border-b-2 border-[#1565C0]">
@@ -177,7 +177,7 @@ export default function OfficerDrawer({ officer: initialOfficer, isOpen, onClose
             
             {/* Success Banner */}
             {successMsg && (
-              <div className="p-3 bg-emerald-100 border border-emerald-300 text-[#2E7D32] rounded font-semibold text-xs animate-in fade-in">
+              <div className="p-3 bg-emerald-100 border border-emerald-300 text-[#2E7D32] rounded font-semibold text-xs fade-in">
                 {successMsg}
               </div>
             )}
@@ -298,7 +298,7 @@ export default function OfficerDrawer({ officer: initialOfficer, isOpen, onClose
 
       {/* Modal Dialog for Reassigning Officer */}
       {isReassignModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0  bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
           <div className="bg-white border border-[#D7DEE7] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl text-xs">
             <div className="border-b border-[#D7DEE7] pb-3 flex items-center justify-between">
               <h3 className="font-bold text-sm text-[#1F3A5F]">Reassign Officer / Field Unit</h3>
