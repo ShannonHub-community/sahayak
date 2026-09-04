@@ -16,8 +16,8 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/api/v1/:path*`,
       },
       {
-        source: "/api/comms/public-feed",
-        destination: `${backendUrl}/api/comms/public-feed`,
+        source: "/api/comms/:path*",
+        destination: `${backendUrl}/api/comms/:path*`,
       },
       {
         source: "/api/geo/:path*",

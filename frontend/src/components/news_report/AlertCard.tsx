@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { 
   AlertOctagon, 
   AlertTriangle, 
@@ -9,14 +9,16 @@ import {
   Shield, 
   Volume2, 
   Square, 
-  MapPin 
+  MapPin,
+  Loader2
 } from 'lucide-react';
 import type { PublicAlert, AlertSeverity } from '@/types/alerts';
 import type { LanguageCode } from '@/types/translation';
 import { 
   getAudioForAlert, 
   stopSpeech, 
-  isSpeechSynthesisSupported 
+  isTTSAvailable,
+  type SpeechControl 
 } from '@/services/tts';
 
 export interface AlertCardProps {
@@ -69,20 +71,23 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   const { relative, full } = formatAlertTime(alert.timestamp);
   
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isTTSAvailable, setIsTTSAvailable] = useState<boolean>(true);
+  const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
+  const currentControlRef = useRef<SpeechControl | null>(null);
+
+  const ttsAvailable = useSyncExternalStore(
+    () => () => {},
+    () => isTTSAvailable(),
+    () => false
+  );
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
 
   const displayTitle = translatedTitle || alert.title;
   const displayMessage = translatedMessage || alert.message;
 
-  // Check browser support for SpeechSynthesis on mount
-  useEffect(() => {
-    setIsTTSAvailable(isSpeechSynthesisSupported());
-  }, []);
-
-  // Cleanup speech on unmount
+  // Cleanup speech and active audio on unmount
   useEffect(() => {
     return () => {
+      currentControlRef.current?.stop();
       stopSpeech();
     };
   }, []);
@@ -93,6 +98,9 @@ export const AlertCard: React.FC<AlertCardProps> = ({
       const customEvent = e as CustomEvent<{ sourceId: string }>;
       if (customEvent.detail?.sourceId !== alert.id) {
         setIsPlaying(false);
+        setIsLoadingAudio(false);
+        currentControlRef.current?.stop();
+        currentControlRef.current = null;
       }
     };
 
@@ -103,9 +111,12 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   }, [alert.id]);
 
   const handleToggleAudio = () => {
-    if (isPlaying) {
+    if (isPlaying || isLoadingAudio) {
+      currentControlRef.current?.stop();
       stopSpeech();
       setIsPlaying(false);
+      setIsLoadingAudio(false);
+      currentControlRef.current = null;
       return;
     }
 
@@ -117,19 +128,34 @@ export const AlertCard: React.FC<AlertCardProps> = ({
     setVoiceNotice(null);
     const fullTextToRead = `${displayTitle}. ${displayMessage}`;
 
-    getAudioForAlert(fullTextToRead, activeLanguage, {
+    currentControlRef.current = getAudioForAlert(fullTextToRead, activeLanguage, {
+      onLoading: (loading) => {
+        setIsLoadingAudio(loading);
+      },
       onStart: () => {
+        setIsLoadingAudio(false);
         setIsPlaying(true);
       },
       onEnd: () => {
         setIsPlaying(false);
+        setIsLoadingAudio(false);
+        currentControlRef.current = null;
       },
       onError: (err) => {
-        console.warn('SpeechSynthesis error:', err);
+        console.warn('[AlertCard Diagnosis] Real underlying TTS error received:', err);
         setIsPlaying(false);
+        setIsLoadingAudio(false);
+        currentControlRef.current = null;
+        setVoiceNotice(
+          'Audio unavailable: Unable to generate speech audio for this alert right now.'
+        );
       },
       onVoiceUnavailable: (info) => {
-        setVoiceNotice(`Device voice for ${info.requested.toUpperCase()} not installed. Speaking in fallback voice.`);
+        if (info.fallbackLang) {
+          setVoiceNotice(
+            `Device voice for ${info.requested.toUpperCase()} not installed. Speaking in regional voice (${info.fallbackLang}).`
+          );
+        }
       },
     });
   };
@@ -209,23 +235,42 @@ export const AlertCard: React.FC<AlertCardProps> = ({
             <span className="text-gray-400 hidden md:inline">({full})</span>
           </div>
 
-          {/* Native Web Speech TTS Button (Gracefully hidden if unsupported) */}
-          {isTTSAvailable && (
+          {/* TTS Button (Native instant or Backend fallback with loading state) */}
+          {ttsAvailable && (
             <button
               type="button"
               onClick={handleToggleAudio}
-              aria-label={isPlaying ? 'Stop reading alert aloud' : 'Read alert aloud via speech audio'}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-bold transition-colors border cursor-pointer ${
+              aria-label={
+                isPlaying
+                  ? 'Stop reading alert aloud'
+                  : isLoadingAudio
+                  ? 'Generating alert audio...'
+                  : 'Read alert aloud via speech audio'
+              }
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-bold transition-colors border cursor-pointer ${
                 isPlaying
                   ? 'bg-red-600 text-white border-red-700 animate-pulse'
+                  : isLoadingAudio
+                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
                   : 'bg-slate-100 hover:bg-slate-200 text-[#0B3D6E] border-slate-300'
               }`}
-              title={isPlaying ? 'Stop reading alert' : 'Listen to this alert (offline native speech)'}
+              title={
+                isPlaying
+                  ? 'Stop reading alert'
+                  : isLoadingAudio
+                  ? 'Generating audio via server...'
+                  : 'Listen to this alert'
+              }
             >
               {isPlaying ? (
                 <>
                   <Square className="w-3 h-3 fill-current" />
                   <span className="text-[11px]">Stop</span>
+                </>
+              ) : isLoadingAudio ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-700" />
+                  <span className="text-[11px]">Loading...</span>
                 </>
               ) : (
                 <>

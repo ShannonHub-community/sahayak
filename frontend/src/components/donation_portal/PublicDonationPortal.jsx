@@ -283,10 +283,10 @@ export const PublicDonationPortal = () => {
                   <select
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-black focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer [&>option]:text-black"
                   >
                     {LOCATIONS.filter(l => l !== 'All Sectors').map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
+                      <option key={loc} value={loc} className="text-black">{loc}</option>
                     ))}
                   </select>
                 </div>
@@ -300,18 +300,18 @@ export const PublicDonationPortal = () => {
                   <select
                     value={resource}
                     onChange={(e) => setResource(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-black focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer [&>option]:text-black"
                   >
-                    <option value="Food Rations">Food Rations</option>
-                    <option value="Medical Kits">Medical Kits</option>
-                    <option value="Blankets">Blankets</option>
-                    <option value="Drinking Water">Drinking Water</option>
-                    <option value="Life Jackets">Life Jackets</option>
-                    <option value="Medics">Medics (Personnel)</option>
-                    <option value="Boat Operators">Boat Operators</option>
-                    <option value="General Volunteers">General Volunteers</option>
-                    <option value="Boats">Boats (Fleet)</option>
-                    <option value="Ambulances">Ambulances</option>
+                    <option value="Food Rations" className="text-black">Food Rations</option>
+                    <option value="Medical Kits" className="text-black">Medical Kits</option>
+                    <option value="Blankets" className="text-black">Blankets</option>
+                    <option value="Drinking Water" className="text-black">Drinking Water</option>
+                    <option value="Life Jackets" className="text-black">Life Jackets</option>
+                    <option value="Medics" className="text-black">Medics (Personnel)</option>
+                    <option value="Boat Operators" className="text-black">Boat Operators</option>
+                    <option value="General Volunteers" className="text-black">General Volunteers</option>
+                    <option value="Boats" className="text-black">Boats (Fleet)</option>
+                    <option value="Ambulances" className="text-black">Ambulances</option>
                   </select>
                 </div>
 
@@ -322,12 +322,12 @@ export const PublicDonationPortal = () => {
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-black focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer [&>option]:text-black"
                   >
-                    <option value="Supplies">Supplies</option>
-                    <option value="Personnel">Personnel</option>
-                    <option value="Fleet">Fleet</option>
-                    <option value="Equipment">Equipment</option>
+                    <option value="Supplies" className="text-black">Supplies</option>
+                    <option value="Personnel" className="text-black">Personnel</option>
+                    <option value="Fleet" className="text-black">Fleet</option>
+                    <option value="Equipment" className="text-black">Equipment</option>
                   </select>
                 </div>
 
