@@ -2,11 +2,15 @@ import { useEffect, useRef } from 'react';
 import { useTwinStore } from '@/store/twinStore';
 import { TwinDiffPayload, TwinMapState } from '../types';
 
-const DEFAULT_WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
-  .replace(/^http/, 'ws') + '/api/twin_aggregator/ws';
+function buildWsUrl(): string {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const wsProtocol = baseUrl.startsWith('https') ? 'wss://' : 'ws://';
+  const hostAndPath = baseUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  return `${wsProtocol}${hostAndPath}/api/twin_aggregator/ws`;
+}
 
 export function useTwinWebsocket(url?: string) {
-  const wsUrl = url || process.env.NEXT_PUBLIC_WS_URL || DEFAULT_WS_URL;
+  const wsUrl = url || process.env.NEXT_PUBLIC_WS_URL || buildWsUrl();
   const setInitialState = useTwinStore((state) => state.setInitialState);
   const applyDiff = useTwinStore((state) => state.applyDiff);
   const setConnectionStatus = useTwinStore((state) => state.setConnectionStatus);
@@ -83,23 +87,31 @@ export function useTwinWebsocket(url?: string) {
         };
 
         socket.onerror = (error) => {
-          if (!isMountedRef.current) return; // Ignores the Strict Mode phantom error
-          console.error('[Digital Twin WS] Connection error:', error);
+          if (!isMountedRef.current) return;
+          // Suppress the generic empty-object Event that browsers fire on every
+          // clean close — only surface genuinely unexpected error objects.
+          if (error && Object.keys(error).length > 0) {
+            console.warn('[Digital Twin WS] Connection warning. Backend may be offline or deploying.', error);
+          }
         };
 
         socket.onclose = (event) => {
           if (!isMountedRef.current) return;
-          console.warn('[Digital Twin WS] Socket disconnected:', event.reason || 'Closed');
+          // Only log non-normal closures (code 1000 = normal close).
+          if (event.code !== 1000) {
+            console.warn('[Digital Twin WS] Socket disconnected:', event.code, event.reason || 'No reason given');
+          }
           setConnectionStatus(false);
 
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
           }
+          // 5 s backoff — avoids aggressive retry loops crashing the browser.
           reconnectTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
               connect();
             }
-          }, 3000);
+          }, 5000);
         };
       } catch (err) {
         console.error('[Digital Twin WS] Failed to create WebSocket connection:', err);
