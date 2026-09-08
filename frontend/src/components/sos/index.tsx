@@ -88,24 +88,6 @@ export default function HomePage() {
         {viewState === 'collapsed' && (
           <div className="w-full flex flex-col items-center justify-center my-auto py-8">
             <div className="w-full max-w-lg text-center space-y-6">
-              {/* National Alert Context & Live News Link */}
-              <Link
-                href="/citizen/news-report"
-                className="bg-white hover:bg-red-50/60 border border-gray-300 hover:border-red-300 rounded-sm p-3 shadow-xs flex items-center justify-between gap-2 text-xs font-semibold text-gray-700 group transition-all"
-                title="View real-time disaster alerts, dam releases, and evacuation advisories"
-              >
-                <div className="flex items-center gap-2 text-left">
-                  <Radio className="w-4 h-4 text-red-600 animate-pulse flex-shrink-0" />
-                  <span className="group-hover:text-red-700 transition-colors">
-                    Pan-India Emergency Response Active • <span className="underline decoration-red-400 font-bold">Live News &amp; Bulletins</span>
-                  </span>
-                </div>
-                <span className="text-[11px] font-bold text-[#0B3D6E] group-hover:text-red-600 flex items-center gap-0.5 flex-shrink-0">
-                  <span>View Feed</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </span>
-              </Link>
-
               {/* Big Centered Primary SOS Trigger */}
               <div className="relative">
                 <button

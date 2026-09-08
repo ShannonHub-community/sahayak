@@ -222,7 +222,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               }`}
             >
               <Radio className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-              <span>📢 Live Alerts &amp; News</span>
+              <span>Live Alerts &amp; News</span>
             </Link>
 
             {/* 3. Citizen Registration Tab */}
@@ -248,7 +248,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               }`}
             >
               <Radio className="w-3.5 h-3.5 text-emerald-400" />
-              <span>📶 Offline Chat</span>
+              <span>Offline Chat</span>
             </Link>
 
             {/* 5. IVR Call Simulator */}
@@ -261,7 +261,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               }`}
             >
               <PhoneCall className="w-3.5 h-3.5 text-amber-300" />
-              <span>📞 IVR Call Simulator</span>
+              <span>IVR Call Simulator</span>
             </Link>
 
             {/* 6. Relief Donations Tab */}
@@ -368,7 +368,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   <div className="flex items-center gap-2.5">
                     <Radio className="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform animate-pulse" />
                     <div>
-                      <div>📢 Live Alerts &amp; News / समाचार एवं अलर्ट</div>
+                      <div>Live Alerts &amp; News / समाचार एवं अलर्ट</div>
                       <div className="text-[11px] font-normal text-gray-500">Real-time dam releases, red alerts &amp; advisories</div>
                     </div>
                   </div>
@@ -408,7 +408,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   <div className="flex items-center gap-2.5">
                     <Radio className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
                     <div>
-                      <div>📶 Offline BLE Mesh Chat / ऑफलाइन मेश चैट</div>
+                      <div>Offline BLE Mesh Chat / ऑफलाइन मेश चैट</div>
                       <div className="text-[11px] font-normal text-gray-500">Peer-to-peer Web Bluetooth local comms</div>
                     </div>
                   </div>
@@ -426,7 +426,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   <div className="flex items-center gap-2.5">
                     <PhoneCall className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
                     <div>
-                      <div>📞 IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
+                      <div>IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
                       <div className="text-[11px] font-normal text-gray-500">Simulated 9-step non-smartphone intake flow</div>
                     </div>
                   </div>
