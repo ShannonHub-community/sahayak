@@ -11,7 +11,15 @@ Configuration (env vars):
                              of hanging or crashing.
     SARVAM_API_BASE_URL   - defaults to https://api.sarvam.ai
     SARVAM_TIMEOUT_SECONDS - defaults to 15
-    SARVAM_TTS_SPEAKER    - defaults to "meera"
+    SARVAM_TTS_MODEL      - defaults to "bulbul:v3"
+    SARVAM_TTS_SPEAKER    - defaults to "anushka"
+
+Note on TTS model: bulbul:v1 is deprecated by Sarvam and only ever had
+solid coverage for Hindi/English. Full 11-language coverage (Bengali,
+Gujarati, Kannada, Malayalam, Marathi, Odia, Punjabi, Tamil, Telugu,
+plus Hindi/English) requires bulbul:v2 or bulbul:v3. v3 also has a
+different (larger) speaker catalog than v1/v2, so the speaker name
+must match the model - "meera" is not a valid v3 speaker.
 """
 from __future__ import annotations
 
@@ -23,7 +31,8 @@ import httpx
 SARVAM_API_BASE_URL = os.environ.get("SARVAM_API_BASE_URL", "https://api.sarvam.ai").rstrip("/")
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
 DEFAULT_TIMEOUT = float(os.environ.get("SARVAM_TIMEOUT_SECONDS", "15"))
-DEFAULT_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "meera")
+DEFAULT_TTS_MODEL = os.environ.get("SARVAM_TTS_MODEL", "bulbul:v3")
+DEFAULT_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "anushka")
 
 # Our short frontend-facing codes -> Sarvam's BCP-47-style codes.
 # ("or" = Odia; Sarvam uses "od-IN" for Odia.)
@@ -101,20 +110,23 @@ def translate_text(text: str, target_language_code: str, source_language_code: s
 def synthesize_speech(text: str, target_language_code: str) -> bytes:
     """Synthesize speech via Sarvam's /text-to-speech endpoint and return
     raw audio bytes (WAV). `target_language_code` is a Sarvam code
-    (e.g. "hi-IN"), not our short "hi" code - map before calling."""
+    (e.g. "hi-IN"), not our short "hi" code - map before calling.
+
+    Uses bulbul:v3, which is required for full 11-language coverage.
+    bulbul:v1 (the old default here) is deprecated and never reliably
+    supported anything beyond Hindi/English; bulbul:v3 also drops the
+    pitch/loudness/enable_preprocessing knobs v1 exposed (preprocessing
+    is automatic on v3), so those are not sent."""
     if not text or not text.strip():
         raise SarvamAPIError("Cannot synthesize speech for empty text")
 
     payload = {
-        "inputs": [text],
+        "text": text,
         "target_language_code": target_language_code,
         "speaker": DEFAULT_SPEAKER,
-        "pitch": 0,
         "pace": 1.0,
-        "loudness": 1.0,
         "speech_sample_rate": 22050,
-        "enable_preprocessing": True,
-        "model": "bulbul:v1",
+        "model": DEFAULT_TTS_MODEL,
     }
 
     try:
