@@ -12,7 +12,7 @@ Configuration (env vars):
     SARVAM_API_BASE_URL   - defaults to https://api.sarvam.ai
     SARVAM_TIMEOUT_SECONDS - defaults to 15
     SARVAM_TTS_MODEL      - defaults to "bulbul:v3"
-    SARVAM_TTS_SPEAKER    - defaults to "anushka"
+    SARVAM_TTS_SPEAKER    - defaults to "anand"
 
 Note on TTS model: bulbul:v1 is deprecated by Sarvam and only ever had
 solid coverage for Hindi/English. Full 11-language coverage (Bengali,
@@ -32,7 +32,7 @@ SARVAM_API_BASE_URL = os.environ.get("SARVAM_API_BASE_URL", "https://api.sarvam.
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
 DEFAULT_TIMEOUT = float(os.environ.get("SARVAM_TIMEOUT_SECONDS", "15"))
 DEFAULT_TTS_MODEL = os.environ.get("SARVAM_TTS_MODEL", "bulbul:v3")
-DEFAULT_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "anushka")
+DEFAULT_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "anand")
 
 # Our short frontend-facing codes -> Sarvam's BCP-47-style codes.
 # ("or" = Odia; Sarvam uses "od-IN" for Odia.)
