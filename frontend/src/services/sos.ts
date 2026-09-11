@@ -56,6 +56,10 @@ export async function submitSOS(payload: SOSPayload): Promise<SOSResponse> {
       report_id: `SMS-IND-${Date.now().toString().slice(-6)}`,
       message: 'Internet unavailable. Emergency SMS draft created for dispatch 112.',
       nearest_shelter: nearestShelter,
+      citizen_location: {
+        lat: payload.location.lat,
+        lng: payload.location.lng,
+      },
       timestamp: new Date().toISOString(),
     };
   }
@@ -74,6 +78,12 @@ export async function submitSOS(payload: SOSPayload): Promise<SOSResponse> {
 
     if (response.ok) {
       const result: SOSResponse = await response.json();
+      if (!result.citizen_location) {
+        result.citizen_location = {
+          lat: payload.location.lat,
+          lng: payload.location.lng,
+        };
+      }
       return result;
     }
   } catch (err) {
@@ -87,6 +97,10 @@ export async function submitSOS(payload: SOSPayload): Promise<SOSResponse> {
     report_id: `SOS-IND-${Date.now().toString().slice(-6)}`,
     message: 'Emergency distress received. National Disaster Response Force & local teams alerted.',
     nearest_shelter: nearest,
+    citizen_location: {
+      lat: payload.location.lat,
+      lng: payload.location.lng,
+    },
     timestamp: new Date().toISOString(),
   };
 }

@@ -128,9 +128,15 @@ export const RegistrationWizard: React.FC = () => {
   };
 
   // Final Submit
-  const handleFinalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFinalSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     setStepError(null);
+
+    // Guard: Final submit can ONLY be triggered from Step 3
+    if (currentStep !== 3) {
+      console.warn('handleFinalSubmit blocked: currentStep is', currentStep);
+      return;
+    }
 
     // Validation for Step 3
     if (!homeLocation) {
@@ -177,14 +183,9 @@ export const RegistrationWizard: React.FC = () => {
     }
   };
 
-  // Form Submit Wrapper (guards Steps 1 & 2 from premature submission on Enter key)
+  // Form Submit Wrapper (prevents premature submission on Enter key or button morphing)
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep === 3) {
-      handleFinalSubmit(e);
-    } else {
-      handleNextStep();
-    }
   };
 
   // Build full payload for summary in confirmation step
@@ -359,18 +360,24 @@ export const RegistrationWizard: React.FC = () => {
             <div className="flex items-center gap-2">
               {currentStep < 3 ? (
                 <button
+                  key={`wizard-continue-step-${currentStep}`}
                   type="button"
-                  onClick={handleNextStep}
-                  className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-bold px-5 py-2.5 rounded-sm border border-blue-900 shadow transition-colors flex items-center gap-1.5"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleNextStep();
+                  }}
+                  className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs font-bold px-5 py-2.5 rounded-sm border border-blue-900 shadow transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Continue to Step {currentStep + 1}</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#FF9933]" />
                 </button>
               ) : (
                 <button
-                  type="submit"
+                  key="wizard-submit-final"
+                  type="button"
+                  onClick={handleFinalSubmit}
                   disabled={isSubmitting}
-                  className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-sm border border-blue-900 shadow-md transition-colors flex items-center gap-2 disabled:opacity-60"
+                  className="bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-sm border border-blue-900 shadow-md transition-colors flex items-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>

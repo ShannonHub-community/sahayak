@@ -7,7 +7,7 @@ import { GovHeader } from '@/components/GovHeader';
 import { GovFooter } from '@/components/GovFooter';
 import { SOSForm } from '@/components/SOSForm';
 import { CompassDisplay } from '@/components/CompassDisplay';
-import type { SOSResponse } from '@/types/sos';
+import type { SOSResponse, SOSLocation } from '@/types/sos';
 import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight, HeartHandshake } from 'lucide-react';
 
 function DonationPortalCard() {
@@ -44,6 +44,7 @@ export default function HomePage() {
   // Page states: 'collapsed' (big centered button) | 'expanded' (in-place form) | 'submitted' (compass guidance)
   const [viewState, setViewState] = useState<'collapsed' | 'expanded' | 'submitted'>('collapsed');
   const [sosResult, setSosResult] = useState<SOSResponse | null>(null);
+  const [submittedLocation, setSubmittedLocation] = useState<SOSLocation | null>(null);
   const mainContentRef = useRef<HTMLDivElement | null>(null);
 
   const handleOpenForm = () => {
@@ -57,14 +58,22 @@ export default function HomePage() {
     setViewState('collapsed');
   };
 
-  const handleSubmitSuccess = (response: SOSResponse) => {
+  const handleSubmitSuccess = (response: SOSResponse, citizenLoc?: SOSLocation) => {
     setSosResult(response);
+    const loc = citizenLoc || (response.citizen_location ? {
+      lat: response.citizen_location.lat,
+      lng: response.citizen_location.lng,
+      accuracy: 5,
+      isFallback: false,
+    } : null);
+    setSubmittedLocation(loc);
     setViewState('submitted');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleReset = () => {
     setSosResult(null);
+    setSubmittedLocation(null);
     setViewState('collapsed');
   };
 
@@ -156,6 +165,12 @@ export default function HomePage() {
             {sosResult.nearest_shelter ? (
               <CompassDisplay
                 shelter={sosResult.nearest_shelter}
+                citizenLocation={submittedLocation || (sosResult.citizen_location ? {
+                  lat: sosResult.citizen_location.lat,
+                  lng: sosResult.citizen_location.lng,
+                  accuracy: 5,
+                  isFallback: false,
+                } : null)}
                 reportId={sosResult.report_id}
                 onReset={handleReset}
               />

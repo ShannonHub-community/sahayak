@@ -135,13 +135,160 @@ const MOCK_PEERS: BlePeer[] = [
   },
 ];
 
-const MOCK_REPLIES = [
-  'I am safe, moving to the higher ground now.',
-  'Do you have any drinking water left?',
-  'NDRF rescue boat just crossed the main road. Heading towards the relief camp.',
-  'Understood! Conserving battery. Will broadcast our coordinates every 10 mins.',
-  'We are sheltered on the 2nd floor of the Community Center with 4 others.',
+// ============================================================================
+// CONTEXT-AWARE MOCK RESPONSES FOR DISASTER BLE MESH CHAT
+// ============================================================================
+
+// 1. Immediate Medical Emergency
+const MOCK_REPLIES_MEDICAL = [
+  'Got it — how many people need help? I will relay this urgent medical distress to the next mesh node right now.',
+  'Understood, copying your medical emergency. Keep the patient stationary and warm. Relaying alert to the local triage node.',
+  'Received loud and clear. Forwarding your medical distress packet through the node chain. Try to apply direct pressure if there is bleeding.',
+  'Copy that, medical distress noted. I am broadcasting this with high-priority flag across our BLE cluster. Hang tight.',
 ];
+
+// 2. Safe & Accounted For
+const MOCK_REPLIES_SAFE = [
+  'Good to hear you are safe. Are you staying put or moving toward one of the designated shelters?',
+  'Copy that, relieved to hear it. Conserve your device battery and stay on higher ground if waters are still rising.',
+  'Understood and logged into our peer table. Glad your group is accounted for. Broadcast an update if your status changes.',
+  'Acknowledged. Great news. We have 3 others sheltered here on the 2nd floor, all accounted for as well.',
+];
+
+// 3. Clean Water & Rations
+const MOCK_REPLIES_RATIONS = [
+  'Noted, passing this request for water and rations to the relief coordinator through the mesh. ETA depends on node hop count.',
+  'Copy that. A volunteer boat dropped clean water packets near the station junction earlier. Relaying your need to that sector.',
+  'Received. Adding your location and supply request to the packet queue for the NDRF distribution team.',
+  'Understood. Boil any available water if you can until the relief supply packets make it through our sector.',
+];
+
+// 4. Safest Route & NDRF Shelter
+const MOCK_REPLIES_ROUTE = [
+  'Head toward higher ground via the main bypass. Avoid the river road — peers confirmed it flooded 30 minutes ago.',
+  'The nearest active shelter is at Pillai College. Take Station Road along the elevated walkway; underpasses are completely submerged.',
+  'Copy that. Move towards the High School relief camp on the eastern ridge. Sector 4 was reported clear of fallen debris.',
+  'Avoid Shivaji Chowk due to waterlogging. Take the elevated flyover approach towards the municipal relief staging area.',
+];
+
+// 5. Radio / Mesh / Battery Status
+const MOCK_REPLIES_RADIO = [
+  'Mesh link is solid. Conserve your battery by lowering screen brightness — messages will queue and sync over BLE automatically.',
+  'Signal strength across our node hop is holding steady. I am keeping this device in low-power broadcast mode.',
+  'Copy that. We are acting as a relay bridge between your sector and the main camp. Keep this channel open.',
+];
+
+// 6. Greetings & Connection Check
+const MOCK_REPLIES_GREETING = [
+  'Hello, receiving you loud and clear over local mesh radio. All cellular towers are down in Panvel. How is your area holding up?',
+  'Mesh connection confirmed! Our devices are connected peer-to-peer over Bluetooth. What is your current situation?',
+  'Loud and clear. Local mesh channel is active. Broadcast your status or let me know if you need assistance relayed.',
+];
+
+// 7. Varied Natural Fallback Responses for Unmatched Free Text
+const MOCK_REPLIES_FALLBACK = [
+  'Message received and acknowledged over mesh. Passing the packet along the node chain to keep the network updated.',
+  'Copy that. We have line-of-sight BLE connection. Let me know if you need medical relay, supplies, or shelter directions.',
+  'Received loud and clear. I am monitoring this frequency from our shelter point. Stay safe.',
+  'Understood. Radio link is holding strong. Let us keep transmissions concise to conserve node battery.',
+  'Noted and stored in local mesh cache. Will rebroadcast to the next node as soon as another device comes within range.',
+];
+
+function selectNextReply(category: string, pool: string[], indexMap: Record<string, number>): string {
+  const currentIndex = indexMap[category] ?? 0;
+  const reply = pool[currentIndex % pool.length];
+  indexMap[category] = currentIndex + 1;
+  return reply;
+}
+
+export function generateContextualPeerReply(incomingText: string, indexMap: Record<string, number>): string {
+  const lower = incomingText.toLowerCase();
+
+  // 1. Immediate Medical Emergency
+  if (
+    lower.includes('medical') || 
+    lower.includes('immediate') || 
+    lower.includes('doctor') || 
+    lower.includes('first aid') || 
+    lower.includes('injury') || 
+    lower.includes('injured') || 
+    lower.includes('bleeding') || 
+    lower.includes('ambulance') || 
+    lower.includes('patient') ||
+    lower.includes('sos:')
+  ) {
+    return selectNextReply('medical', MOCK_REPLIES_MEDICAL, indexMap);
+  }
+
+  // 2. Safe & Accounted for
+  if (
+    lower.includes('safe') || 
+    lower.includes('accounted') || 
+    lower.includes('all good') || 
+    lower.includes('okay') || 
+    lower.includes('survived') || 
+    lower.includes('fine')
+  ) {
+    return selectNextReply('safe', MOCK_REPLIES_SAFE, indexMap);
+  }
+
+  // 3. Water & Rations
+  if (
+    lower.includes('water') || 
+    lower.includes('ration') || 
+    lower.includes('food') || 
+    lower.includes('drink') || 
+    lower.includes('supplies') || 
+    lower.includes('hunger') ||
+    lower.includes('starving')
+  ) {
+    return selectNextReply('rations', MOCK_REPLIES_RATIONS, indexMap);
+  }
+
+  // 4. Safest Route & Shelter
+  if (
+    lower.includes('route') || 
+    lower.includes('shelter') || 
+    lower.includes('ndrf') || 
+    lower.includes('road') || 
+    lower.includes('flood') || 
+    lower.includes('direction') || 
+    lower.includes('where to go') || 
+    lower.includes('bridge') || 
+    lower.includes('way') ||
+    lower.includes('safest')
+  ) {
+    return selectNextReply('route', MOCK_REPLIES_ROUTE, indexMap);
+  }
+
+  // 5. Battery / Radio / Signal
+  if (
+    lower.includes('battery') || 
+    lower.includes('charge') || 
+    lower.includes('radio') || 
+    lower.includes('signal') || 
+    lower.includes('power') ||
+    lower.includes('mesh')
+  ) {
+    return selectNextReply('radio', MOCK_REPLIES_RADIO, indexMap);
+  }
+
+  // 6. Greetings / Check-in
+  if (
+    lower.includes('hello') || 
+    lower.includes('hi ') || 
+    lower === 'hi' ||
+    lower.includes('hey') || 
+    lower.includes('test') || 
+    lower.includes('ping') || 
+    lower.includes('anyone')
+  ) {
+    return selectNextReply('greeting', MOCK_REPLIES_GREETING, indexMap);
+  }
+
+  // 7. Varied natural disaster mesh fallbacks
+  return selectNextReply('fallback', MOCK_REPLIES_FALLBACK, indexMap);
+}
 
 /**
  * Safely access the browser's Web Bluetooth API
@@ -198,7 +345,7 @@ export function useBleMesh(): UseBleMeshReturn {
   const [error, setError] = useState<string | null>(null);
 
   const connectedDevicesRef = useRef<Map<string, BluetoothDeviceInstance>>(new Map());
-  const replyIndexRef = useRef<number>(0);
+  const replyCategoryIndicesRef = useRef<Record<string, number>>({});
 
   // Initialize capability detection & local identity on mount
   useEffect(() => {
@@ -412,8 +559,7 @@ export function useBleMesh(): UseBleMeshReturn {
         const replySenderId = targetPeer.peerId;
 
         const delayMs = 2000 + Math.floor(Math.random() * 2000); // 2000ms - 4000ms
-        const replyText = MOCK_REPLIES[replyIndexRef.current % MOCK_REPLIES.length];
-        replyIndexRef.current += 1;
+        const replyText = generateContextualPeerReply(trimmed, replyCategoryIndicesRef.current);
 
         setTimeout(() => {
           const replyMessage: BleChatMessage = {

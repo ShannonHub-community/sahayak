@@ -43,6 +43,10 @@ export interface SOSResponse {
   report_id: string;
   message: string;
   nearest_shelter?: NearestShelter | null;
+  citizen_location?: {
+    lat: number;
+    lng: number;
+  };
   timestamp: string;
 }
 

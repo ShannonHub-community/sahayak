@@ -38,7 +38,7 @@ import { submitSOS } from '@/services/sos';
 
 interface SOSFormProps {
   onCancel?: () => void;
-  onSubmitSuccess: (response: SOSResponse) => void;
+  onSubmitSuccess: (response: SOSResponse, citizenLocation?: SOSLocation) => void;
 }
 
 
@@ -257,7 +257,12 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
     setIsSubmitting(true);
     try {
       const response = await submitSOS(payload);
-      onSubmitSuccess(response);
+      onSubmitSuccess(response, currentLocation || {
+        lat: payload.location.lat,
+        lng: payload.location.lng,
+        accuracy: 5,
+        isFallback: false,
+      });
     } catch (err: any) {
       console.error('SOS submission failed:', err);
       setFormError(err.message || 'Failed to transmit SOS. Please call 112 directly or try SMS.');

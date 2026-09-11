@@ -89,10 +89,10 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4 text-[11px]">
-            {/* Persistent Offline Guides Badge (Tappable Link to /guides) */}
+            {/* Persistent Offline Guides Badge (Tappable Link to /citizen/guides) */}
             {offlineGuidesReady && (
               <Link 
-                href="/guides"
+                href="/citizen/guides"
                 className="flex items-center gap-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 hover:text-emerald-200 border border-emerald-700 hover:border-emerald-500 px-2 py-0.5 rounded font-medium shadow-sm transition-all cursor-pointer"
                 title="Tap to view saved offline survival guides & protocols"
               >
@@ -450,6 +450,23 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
+                {/* Offline Survival Guides */}
+                <Link
+                  href="/citizen/guides"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
+                    pathname === '/citizen/guides' ? 'bg-emerald-50 text-emerald-900' : 'hover:bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FileText className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <div>Offline Survival Guides / आपातकालीन मार्गदर्शिका</div>
+                      <div className="text-[11px] font-normal text-gray-500">First-aid, flood evacuation &amp; shelter protocols</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
               </div>
 
               <hr className="border-gray-200" />
@@ -461,7 +478,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                     <FileText className="w-4 h-4 text-[#0B3D6E]" />
                     <span>Device Offline Storage</span>
                   </div>
-                  <Link href="/guides" onClick={() => setIsMenuOpen(false)} className="text-[11px] text-[#0B3D6E] underline">
+                  <Link href="/citizen/guides" onClick={() => setIsMenuOpen(false)} className="text-[11px] text-[#0B3D6E] underline">
                     View Guides
                   </Link>
                 </div>
