@@ -62,7 +62,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   // Form Fields
   const [name, setName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
-  const [paxCount, setPaxCount] = useState<number>(1);
+  const [paxCount, setPaxCount] = useState<number | ''>(1);
   const [medicalEmergency, setMedicalEmergency] = useState<boolean>(false);
   const [medicalCondition, setMedicalCondition] = useState<string>('');
   const [includesInfants, setIncludesInfants] = useState<boolean>(false);
@@ -240,7 +240,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
       citizen_id: profile?.citizen_id ?? null,
       name: trimmedName,
       phone: phone.trim() ? phone.trim() : null,
-      pax_count: paxCount,
+      pax_count: typeof paxCount === 'number' && paxCount >= 1 ? paxCount : 1,
       medical_emergency: medicalEmergency || Boolean(medicalCondition),
       medical_condition: medicalCondition.trim() ? medicalCondition.trim() : null,
       includes_infants: includesInfants,
@@ -390,18 +390,18 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
               <div className="flex items-center border-2 border-[#0B3D6E] bg-white rounded-sm">
                 <button
                   type="button"
-                  onClick={() => setPaxCount((prev) => Math.max(1, prev - 1))}
+                  onClick={() => setPaxCount((prev) => Math.max(1, (typeof prev === 'number' ? prev : 1) - 1))}
                   aria-label="Decrease passenger count"
                   className="w-11 h-11 flex items-center justify-center text-lg font-bold text-[#0B3D6E] hover:bg-gray-100 active:bg-gray-200"
                 >
                   -
                 </button>
                 <span className="w-12 text-center text-lg font-bold text-gray-900 font-mono select-none">
-                  {paxCount}
+                  {paxCount || 1}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPaxCount((prev) => prev + 1)}
+                  onClick={() => setPaxCount((prev) => (typeof prev === 'number' ? prev : 1) + 1)}
                   aria-label="Increase passenger count"
                   className="w-11 h-11 flex items-center justify-center text-lg font-bold text-[#0B3D6E] hover:bg-gray-100 active:bg-gray-200"
                 >
@@ -420,16 +420,21 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
                   min={1}
                   step={1}
                   value={paxCount}
+                  onFocus={(e) => e.target.select()}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
                   onChange={(e) => {
-                    const parsed = parseInt(e.target.value, 10);
-                    if (!isNaN(parsed) && parsed >= 1) {
-                      setPaxCount(parsed);
-                    } else if (e.target.value === '') {
-                      setPaxCount(1);
+                    const val = e.target.value;
+                    if (val === '') {
+                      setPaxCount('');
+                    } else {
+                      const parsed = parseInt(val, 10);
+                      if (!isNaN(parsed) && parsed >= 0) {
+                        setPaxCount(parsed);
+                      }
                     }
                   }}
                   onBlur={() => {
-                    if (paxCount < 1 || isNaN(paxCount)) {
+                    if (paxCount === '' || paxCount < 1 || isNaN(Number(paxCount))) {
                       setPaxCount(1);
                     }
                   }}

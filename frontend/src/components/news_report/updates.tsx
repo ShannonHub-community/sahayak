@@ -32,6 +32,9 @@ import {
 } from '@/services/translation';
 import type { AlertSeverity, PublicAlert } from '@/types/alerts';
 
+// Storage key for persisting feed mode preference ('nationwide' | 'regional')
+const LOCATION_FEED_MODE_KEY = 'sahayak_alerts_feed_mode';
+
 export default function UpdatesPage() {
   const mainContentRef = useRef<HTMLDivElement | null>(null);
 
@@ -77,7 +80,11 @@ export default function UpdatesPage() {
         const res = await getStateFromCoordinates(coords.lat, coords.lng);
         if (res && res.state) {
           setDetectedState(res.state);
-          setSelectedState(res.state);
+          const savedMode = typeof window !== 'undefined' ? localStorage.getItem(LOCATION_FEED_MODE_KEY) : null;
+          // Only auto-scope to detected state if user has NOT explicitly chosen nationwide feed
+          if (savedMode !== 'nationwide') {
+            setSelectedState(res.state);
+          }
         } else {
           setLocationNote('Showing nationwide feed — enable location to see alerts for your state.');
         }
@@ -91,6 +98,37 @@ export default function UpdatesPage() {
 
     autoDetectLocation();
   }, []);
+
+  // Handlers for switching between Nationwide feed and Regional state-filtered feed
+  const handleViewNationwide = () => {
+    console.log('[DEBUG handleViewNationwide] BEFORE click, selectedState was:', selectedState);
+    setSelectedState(null);
+    console.log('[DEBUG handleViewNationwide] AFTER click handled, setSelectedState(null) called. New intended state: null');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(LOCATION_FEED_MODE_KEY, 'nationwide');
+      } catch (e) {
+        console.warn('Unable to persist feed mode:', e);
+      }
+    }
+  };
+
+  const handleFilterToDetectedState = () => {
+    if (detectedState) {
+      setSelectedState(detectedState);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(LOCATION_FEED_MODE_KEY, 'regional');
+        } catch (e) {
+          console.warn('Unable to persist feed mode:', e);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    console.log('[DEBUG Component State] Current selectedState in updates.tsx:', selectedState);
+  }, [selectedState]);
 
   // Keep ref to alerts so handleTranslation doesn't depend on unstable array references
   const alertsRef = useRef(alerts);
@@ -335,7 +373,7 @@ export default function UpdatesPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedState(null)}
+                  onClick={handleViewNationwide}
                   className="text-[11px] font-bold text-emerald-900 underline hover:text-emerald-700 cursor-pointer"
                 >
                   View Nationwide Feed
@@ -351,17 +389,17 @@ export default function UpdatesPage() {
               </div>
             </div>
           ) : !selectedState && detectedState ? (
-            <div className="bg-slate-50 border border-slate-300 p-2 rounded-md text-xs text-slate-700 flex items-center justify-between gap-2">
+            <div className="bg-slate-50 border border-slate-300 p-2.5 rounded-md text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-slate-500" />
                 <span>Showing unfiltered nationwide alerts.</span>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedState(detectedState)}
+                onClick={handleFilterToDetectedState}
                 className="text-[11px] font-bold text-[#0B3D6E] underline hover:text-blue-900 cursor-pointer"
               >
-                Filter to {detectedState}
+                Filter to {detectedState} (Show my region again)
               </button>
             </div>
           ) : locationNote && !bannerDismissed ? (

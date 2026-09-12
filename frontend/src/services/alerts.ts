@@ -73,6 +73,7 @@ interface RawAlertItem {
 }
 
 export const alertsFetcher = async (endpoint: string): Promise<PublicAlert[]> => {
+  console.log('[DEBUG alertsFetcher] Executing network fetch for endpoint:', endpoint);
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
   const headers: HeadersInit = {
     'Accept': 'application/json',
@@ -104,7 +105,7 @@ export const alertsFetcher = async (endpoint: string): Promise<PublicAlert[]> =>
     state: item.state,
   }));
 
-  if (typeof window !== 'undefined' && formattedAlerts.length > 0) {
+  if (typeof window !== 'undefined' && formattedAlerts.length > 0 && !endpoint.includes('state=')) {
     try {
       localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(formattedAlerts));
     } catch (e) {
@@ -127,6 +128,7 @@ export function usePublicAlerts(page = 1, stateFilter?: string | null): UsePubli
   }
 
   const endpointUrl = `/api/comms/public-feed?${queryParams.toString()}`;
+  console.log('[DEBUG usePublicAlerts] SWR Key/URL computed. stateFilter:', stateFilter, '-> endpointUrl:', endpointUrl);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<PublicAlert[]>(
     endpointUrl,
@@ -146,16 +148,14 @@ export function usePublicAlerts(page = 1, stateFilter?: string | null): UsePubli
 
   const finalAlerts = useMemo(() => {
     const base = data || initialCached;
-    if (stateFilter && stateFilter !== 'all' && (!data || isOffline || error)) {
+    if (stateFilter && stateFilter !== 'all') {
       const filtered = base.filter(
         (a) => !a.state || a.state.toLowerCase() === stateFilter.toLowerCase()
       );
-      if (filtered.length > 0) {
-        return filtered;
-      }
+      return filtered;
     }
     return base;
-  }, [data, initialCached, stateFilter, isOffline, error]);
+  }, [data, initialCached, stateFilter]);
 
   return {
     alerts: finalAlerts,
