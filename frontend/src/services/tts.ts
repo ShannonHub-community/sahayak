@@ -134,15 +134,21 @@ export interface VoiceMatchResult {
  * Checks for:
  * 1. Exact BCP-47 match (e.g. 'mr-IN', 'hi-IN', 'ta-IN')
  * 2. Close match: same language with different region code (e.g. 'en-US' for 'en-IN', 'bn-BD' for 'bn-IN')
- * 3. Returns null if no voice for this language family exists on the device.
+ * 3. Phonetic fallback: if 'mr-IN' (Marathi) or 'kn-IN' (Kannada) is missing, allow fallback
+ *    to 'hi-IN' (Hindi) since they share similar script/phonetics on Windows/Mac native TTS engines.
+ * 4. Returns null if no voice for this language family exists on the device.
  *    (Never falls back to an unrelated English voice for non-English languages).
  */
-export function findBestVoiceForLanguage(languageCode: string): VoiceMatchResult {
+export function getBestVoiceForLanguage(languageCode: string): VoiceMatchResult {
   if (!isSpeechSynthesisSupported()) {
     return { voice: null, isExactLanguageMatch: false, matchType: 'none' };
   }
 
-  const voices = window.speechSynthesis.getVoices() || [];
+  // Ensure window.speechSynthesis.getVoices() is called immediately before voice lookup to avoid race conditions
+  let voices = window.speechSynthesis.getVoices() || [];
+  if (voices.length === 0) {
+    voices = window.speechSynthesis.getVoices() || [];
+  }
 
   if (voices.length === 0) {
     return { voice: null, isExactLanguageMatch: false, matchType: 'none' };
@@ -170,15 +176,30 @@ export function findBestVoiceForLanguage(languageCode: string): VoiceMatchResult
     return { voice: closeMatch, isExactLanguageMatch: false, matchType: 'close' };
   }
 
-  // 3. Truly no voice is available for that language on this device.
+  // 3. Phonetic fallback: if mr-IN (Marathi) or kn-IN (Kannada) is missing, allow fallback
+  // to hi-IN (Hindi) since they share similar script/phonetics on Windows/Mac native TTS engines
+  if (targetPrefix === 'mr' || targetPrefix === 'kn' || targetBcp47 === 'mr-in' || targetBcp47 === 'kn-in') {
+    const hindiVoice = voices.find((v) => {
+      const vLang = v.lang.toLowerCase().replace('_', '-');
+      return vLang === 'hi-in' || vLang === 'hi' || vLang.startsWith('hi-');
+    });
+    if (hindiVoice) {
+      return { voice: hindiVoice, isExactLanguageMatch: false, matchType: 'close' };
+    }
+  }
+
+  // 4. Truly no voice is available for that language on this device.
   return { voice: null, isExactLanguageMatch: false, matchType: 'none' };
 }
+
+// Alias for backwards compatibility
+export const findBestVoiceForLanguage = getBestVoiceForLanguage;
 
 /**
  * Checks if the device has an exact or close voice installed for the given language.
  */
 export function isLanguageVoiceAvailable(languageCode: string): boolean {
-  return findBestVoiceForLanguage(languageCode).voice !== null;
+  return getBestVoiceForLanguage(languageCode).voice !== null;
 }
 
 /**
@@ -378,7 +399,9 @@ export function getAudioForAlert(
 
   // Attempt 1: Native Web Speech API (if supported and matching voice installed)
   if (isSpeechSynthesisSupported()) {
-    const { voice, isExactLanguageMatch } = findBestVoiceForLanguage(language);
+    // Ensure voices are fetched immediately before voice lookup to avoid Chromium async race conditions
+    window.speechSynthesis.getVoices();
+    const { voice, isExactLanguageMatch } = getBestVoiceForLanguage(language);
 
     if (voice) {
       try {
@@ -386,6 +409,9 @@ export function getAudioForAlert(
         if (window.speechSynthesis.paused) {
           window.speechSynthesis.resume();
         }
+
+        // Call getVoices() immediately before synthesis to ensure engine voice table is active
+        window.speechSynthesis.getVoices();
 
         const utterance = new SpeechSynthesisUtterance(text);
         const bcp47 = BCP47_LANGUAGE_MAP[language] || 'en-IN';

@@ -38,7 +38,7 @@ export interface TranslatedAlertsMap {
  * Calls backend endpoint POST /api/comms/translate (which wraps Sarvam API)
  */
 export async function translateAlerts(
-  alerts: Array<{ id: string | number; title: string; message: string; [key: string]: any }>,
+  alerts: Array<{ id: string | number; title: string; message: string;[key: string]: any }>,
   languageCode: LanguageCode | string
 ): Promise<TranslatedAlertsMap> {
   // If English, return empty map (components render original text)
@@ -58,14 +58,12 @@ export async function translateAlerts(
   };
 
   try {
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
     };
     let res: Response | null = null;
     try {
-      res = await fetch(`${apiBase}/api/comms/translate`, {
+      res = await fetch('/api/comms/translate', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),

@@ -92,6 +92,17 @@ export const AlertCard: React.FC<AlertCardProps> = ({
     };
   }, []);
 
+  // Stop playback cleanly when activeLanguage switches while audio is playing
+  useEffect(() => {
+    if (isPlaying) {
+      currentControlRef.current?.stop();
+      setIsPlaying(false);
+      setIsLoadingAudio(false);
+      currentControlRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLanguage]);
+
   // Listen for global stop-audio event so only one card speaks at a time
   useEffect(() => {
     const handleGlobalStop = (e: Event) => {

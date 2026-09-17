@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Radio,
-  HeartHandshake
+  HeartHandshake,
+  Newspaper
 } from 'lucide-react';
 import { hasOfflineGuides } from '@/services/offlineCache';
 import { getBrowserIdentifier } from '@/services/browserIdentifier';
@@ -245,7 +246,20 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>IVR Call Simulator</span>
             </Link>
 
-            {/* 5. Relief Donations Tab */}
+            {/* 5. Live Alerts & News Report */}
+            <Link
+              href="/citizen/news-report"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
+                pathname === '/citizen/news-report' || pathname === '/citizen/updates'
+                  ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
+                  : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
+              }`}
+            >
+              <Newspaper className="w-3.5 h-3.5 text-amber-300" />
+              <span>Live Alerts &amp; News</span>
+            </Link>
+
+            {/* 6. Relief Donations Tab */}
             <Link
               href="/citizen/donation"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -409,6 +423,26 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                     <div>
                       <div>IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
                       <div className="text-[11px] font-normal text-gray-500">Simulated 9-step non-smartphone intake flow</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
+
+                {/* Live Alerts & News Bulletins */}
+                <Link
+                  href="/citizen/news-report"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`flex items-center justify-between p-3 rounded-sm font-semibold transition-colors group ${
+                    pathname === '/citizen/news-report' || pathname === '/citizen/updates'
+                      ? 'bg-blue-50 text-[#0B3D6E]'
+                      : 'hover:bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Newspaper className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <div>Live Alerts &amp; News / समाचार एवं अलर्ट</div>
+                      <div className="text-[11px] font-normal text-gray-500">Official disaster bulletins, IMD alerts &amp; voice playback</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
