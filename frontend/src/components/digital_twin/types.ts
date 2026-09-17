@@ -8,6 +8,11 @@ export interface TwinMapState {
   severity_count: number;
   status: string;
   last_updated: string;
+  name?: string;
+  depth?: string;
+  river?: string;
+  flowSpeed?: string;
+  notes?: string;
 }
 
 export interface TwinDiffPayload {

@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import {
   AlertTriangle,
   Siren,
@@ -9,20 +8,103 @@ import {
   Sailboat,
   Building2,
   HelpCircle,
+  Droplets,
 } from "lucide-react";
 import { TwinMapState } from "./types";
 
 interface EntityMarkerProps {
   entity: TwinMapState;
+  isSelected?: boolean;
 }
 
 /**
  * Renders an incident-command-grade map marker for a given entity.
  * Pure visual component — positioning and click interaction are owned by <Marker>.
  */
-export function EntityMarker({ entity }: EntityMarkerProps) {
+export function EntityMarker({ entity, isSelected }: EntityMarkerProps) {
   const { entity_type, severity_count, symbol, status } = entity;
   const sym = (symbol ?? "").toLowerCase();
+
+  // ── FLOOD HAZARD ZONE ─────────────────────────────────────────────────────
+  if (entity_type === "flood_zone" || sym.includes("flood")) {
+    // Extract water depth from status or severity_count
+    let depthStr = "1.5m";
+    if (entity.depth) {
+      depthStr = entity.depth;
+    } else if (entity.status && /\d+(\.\d+)?\s*m/i.test(entity.status)) {
+      const match = entity.status.match(/\d+(\.\d+)?\s*m/i);
+      if (match) depthStr = match[0];
+    } else if (typeof severity_count === "number" && !isNaN(severity_count)) {
+      if (severity_count > 10) {
+        depthStr = `${(severity_count / 10).toFixed(1)}m`;
+      } else if (severity_count > 0) {
+        depthStr = `${severity_count.toFixed(1)}m`;
+      }
+    }
+
+    const st = (status ?? "").toLowerCase();
+    const isCritical =
+      st.includes("critical") ||
+      st.includes("overflow") ||
+      (typeof severity_count === "number" && severity_count >= 30);
+
+    const displayName = entity.name || (symbol ? symbol.replace(/_/g, " ") : "Flood Hazard Point");
+
+    return (
+      <div
+        className="relative group cursor-pointer flex flex-col items-center select-none"
+        title={`${displayName} — ${depthStr} (${status || "Flood Warning"})`}
+      >
+        {/* Outer Pulsating Ripple */}
+        <span
+          className={`absolute -inset-1 rounded-full opacity-60 animate-ping ${
+            isCritical ? "bg-rose-400" : "bg-sky-400"
+          }`}
+        />
+
+        {/* Clean Flood Badge */}
+        <div
+          className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-md transition-all duration-200 hover:scale-105 ${
+            isSelected
+              ? "bg-slate-900 text-white border-2 border-slate-900 shadow-md scale-105"
+              : "bg-white text-slate-900 border border-slate-300 shadow-sm"
+          }`}
+        >
+          <span className="relative flex items-center justify-center">
+            <Droplets
+              size={13}
+              className={
+                isSelected
+                  ? "text-sky-300"
+                  : isCritical
+                  ? "text-rose-600"
+                  : "text-sky-600"
+              }
+            />
+          </span>
+          <span
+            className={`text-[11px] font-bold tracking-tight whitespace-nowrap ${
+              isSelected ? "text-white" : "text-slate-900"
+            }`}
+          >
+            {depthStr}
+          </span>
+          <span
+            className={`text-[9px] font-bold uppercase tracking-wider ${
+              isSelected ? "text-slate-300" : "text-slate-500"
+            }`}
+          >
+            WATER
+          </span>
+        </div>
+
+        {/* Subtitle location badge on hover */}
+        <div className="absolute top-full mt-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[9px] px-2 py-0.5 rounded shadow-md border border-slate-800 whitespace-nowrap z-10">
+          {displayName}
+        </div>
+      </div>
+    );
+  }
 
   // ── SOS REPORT ────────────────────────────────────────────────────────────
   if (entity_type === "sos_report" || entity_type === "sos" || sym.includes("sos")) {
