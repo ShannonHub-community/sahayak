@@ -308,6 +308,26 @@ export default function IvrSimulatorPage() {
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const languageRef = useRef<'hi' | 'en' | 'mr' | 'kn' | null>(null);
 
+  // Stable mutable refs — synced each render so memoized callbacks always read latest values
+  const isMutedRef = useRef<boolean>(false);
+  const callDurationRef = useRef<number>(0);
+  const payloadRef = useRef<IvrCollectedData>(INITIAL_PAYLOAD);
+  const currentStepRef = useRef<IvrStepId>('IDLE');
+  const isRecordingRef = useRef<boolean>(false);
+  const inputBufferRef = useRef<string>('');
+  const isProcessingSttRef = useRef<boolean>(false);
+  // Ref to finalizeCall so handleKeyPress/stopVoiceRecording can call it without circular deps
+  const finalizeCallRef = useRef<((noteAudioId: string | null) => Promise<void>) | null>(null);
+
+  // Sync refs on every render (cheap — only writes a ref, no state)
+  isMutedRef.current = isMuted;
+  callDurationRef.current = callDuration;
+  payloadRef.current = payload;
+  currentStepRef.current = currentStep;
+  isRecordingRef.current = isRecording;
+  inputBufferRef.current = inputBuffer;
+  isProcessingSttRef.current = isProcessingStt;
+
   useEffect(() => {
     languageRef.current = payload.language;
   }, [payload.language]);
@@ -340,6 +360,7 @@ export default function IvrSimulatorPage() {
   }, [transcripts]);
 
   // Helper to add transcript entry & invoke Web Speech TTS for IVR prompts
+  // Stable — reads language and mute state from refs; never causes dep-chain thrashing.
   const addTranscript = useCallback((speaker: 'ivr' | 'caller' | 'system', text: string, textHi?: string, inputType?: 'dtmf' | 'voice' | 'system', meta?: string) => {
     const newEntry: TranscriptEntry = {
       id: Math.random().toString(36).substring(2, 9),
@@ -352,52 +373,55 @@ export default function IvrSimulatorPage() {
     };
     setTranscripts((prev) => [...prev, newEntry]);
 
-    // Native Web Speech TTS audio playback with robust voice selection & regional fallback
+    // Native Web Speech TTS — always cancel previous utterance, only speak when not muted
     if (speaker === 'ivr' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const currentLang = languageRef.current || payload.language;
-      let targetLang = 'en-IN';
-      if (currentLang === 'hi') targetLang = 'hi-IN';
-      else if (currentLang === 'mr') targetLang = 'mr-IN';
-      else if (currentLang === 'kn') targetLang = 'kn-IN';
 
-      const utteranceText = (currentLang && currentLang !== 'en' && textHi) ? textHi : text;
-      const utterance = new SpeechSynthesisUtterance(utteranceText);
+      if (!isMutedRef.current) {
+        const currentLang = languageRef.current || 'en';
+        let targetLang = 'en-IN';
+        if (currentLang === 'hi') targetLang = 'hi-IN';
+        else if (currentLang === 'mr') targetLang = 'mr-IN';
+        else if (currentLang === 'kn') targetLang = 'kn-IN';
 
-      const voices = window.speechSynthesis.getVoices();
-      
-      // Look for exact voice match for targetLang (case-insensitive prefix/exact, e.g. "mr-IN", "mr_IN", "mr")
-      let selectedVoice = voices.find((v) => 
-        v.lang.toLowerCase() === targetLang.toLowerCase() || 
-        v.lang.toLowerCase().startsWith(targetLang.slice(0, 2).toLowerCase())
-      );
+        const utteranceText = (currentLang && currentLang !== 'en' && textHi) ? textHi : text;
+        const utterance = new SpeechSynthesisUtterance(utteranceText);
 
-      // CRITICAL FALLBACK: If mr-IN (Marathi) requested but no Marathi voice found,
-      // fallback to hi-IN (Hindi) so Devanagari script is pronounced correctly
-      let effectiveLang = targetLang;
-      if (!selectedVoice && targetLang === 'mr-IN') {
-        selectedVoice = voices.find((v) => 
-          v.lang.toLowerCase() === 'hi-in' || 
-          v.lang.toLowerCase().startsWith('hi')
+        // getVoices() may be empty on first call in Chromium; fall back gracefully
+        const voices = window.speechSynthesis.getVoices();
+
+        let selectedVoice = voices.find((v) =>
+          v.lang.toLowerCase() === targetLang.toLowerCase() ||
+          v.lang.toLowerCase().startsWith(targetLang.slice(0, 2).toLowerCase())
         );
-        effectiveLang = 'hi-IN';
-      }
 
-      // If Kannada voice not found, attempt kn prefix
-      if (!selectedVoice && targetLang === 'kn-IN') {
-        selectedVoice = voices.find((v) => v.lang.toLowerCase().startsWith('kn'));
-      }
+        // CRITICAL FALLBACK: If mr-IN (Marathi) requested but no Marathi voice found,
+        // fallback to hi-IN (Hindi) so Devanagari script is pronounced correctly
+        let effectiveLang = targetLang;
+        if (!selectedVoice && targetLang === 'mr-IN') {
+          selectedVoice = voices.find((v) =>
+            v.lang.toLowerCase() === 'hi-in' ||
+            v.lang.toLowerCase().startsWith('hi')
+          );
+          effectiveLang = 'hi-IN';
+        }
 
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        utterance.lang = selectedVoice.lang;
-      } else {
-        utterance.lang = effectiveLang;
-      }
+        // If Kannada voice not found, attempt kn prefix
+        if (!selectedVoice && targetLang === 'kn-IN') {
+          selectedVoice = voices.find((v) => v.lang.toLowerCase().startsWith('kn'));
+        }
 
-      window.speechSynthesis.speak(utterance);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          utterance.lang = selectedVoice.lang;
+        } else {
+          utterance.lang = effectiveLang;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
     }
-  }, [payload.language]);
+  }, []);
 
   // Format seconds to mm:ss
   const formatTime = (seconds: number) => {
@@ -410,8 +434,8 @@ export default function IvrSimulatorPage() {
   // STEP PROMPTS & INTAKE LOGIC
   // ============================================================================
 
-  // Start / Dial Call
-  const handleStartCall = () => {
+  // Start / Dial Call — stable useCallback; only recreated if addTranscript changes (never)
+  const handleStartCall = useCallback(() => {
     languageRef.current = null;
     setPayload({
       ...INITIAL_PAYLOAD,
@@ -438,9 +462,9 @@ export default function IvrSimulatorPage() {
       'dtmf',
       'Awaiting DTMF: 1, 2, 3, 4 (or * to abort)'
     );
-  };
+  }, [addTranscript]);
 
-  // Hangup / End Call
+  // Hangup / End Call — reads callDuration from ref so it doesn't destabilize dependents
   const handleEndCall = useCallback((reason: string = 'User terminated call') => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -449,17 +473,23 @@ export default function IvrSimulatorPage() {
     setPayload((prev) => ({
       ...prev,
       callEndedAt: new Date().toISOString(),
-      durationSeconds: callDuration,
+      durationSeconds: callDurationRef.current,
     }));
     addTranscript('system', `Call Terminated: ${reason}`, `कॉल समाप्त: ${reason}`, 'system');
-  }, [callDuration, addTranscript]);
+  }, [addTranscript]);
 
   // Handle DTMF Keypress (0-9, *, #)
-  const handleKeyPress = (digit: string) => {
+  // Stable useCallback — reads all volatile state from refs so it never triggers keyboard listener re-registration
+  const handleKeyPress = useCallback((digit: string) => {
+    // Read latest values from refs (not stale closure state)
+    const currentStep = currentStepRef.current;
+    const isProcessingStt = isProcessingSttRef.current;
+    const inputBuffer = inputBufferRef.current;
+
     if (currentStep === 'IDLE' || isProcessingStt) return;
 
     setActiveKey(digit);
-    playDtmfTone(digit, isMuted);
+    playDtmfTone(digit, isMutedRef.current);
     setTimeout(() => setActiveKey(null), 150);
 
     // Call Ended state: keypad is disabled
@@ -529,7 +559,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 2: INTENT CONFIRMATION
     if (currentStep === 'STEP_2_INTENT') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '1') {
         setPayload((prev) => ({ ...prev, intentConfirmed: true }));
         addTranscript('caller', 'Pressed DTMF [1] - SOS Distress Confirmed', 'डीटीएमएफ [1] दबाया गया - आपातकालीन संकट की पुष्टि हुई', 'dtmf');
@@ -549,7 +579,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 4: PAX COUNT (Digit buffer + '#')
     if (currentStep === 'STEP_4_PAX') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '#') {
         if (inputBuffer.trim().length > 0) {
           const count = parseInt(inputBuffer, 10);
@@ -582,7 +612,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 5: MEDICAL EMERGENCY
     if (currentStep === 'STEP_5_MEDICAL') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '1' || digit === '2') {
         const isMed = digit === '1';
         setPayload((prev) => ({ ...prev, medical: isMed }));
@@ -603,7 +633,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 6: INFANTS PRESENT
     if (currentStep === 'STEP_6_INFANTS') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '1' || digit === '2') {
         const isInfants = digit === '1';
         setPayload((prev) => ({ ...prev, infants: isInfants }));
@@ -624,7 +654,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 7: ELDERLY PRESENT
     if (currentStep === 'STEP_7_ELDERLY') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '1' || digit === '2') {
         const isElderly = digit === '1';
         setPayload((prev) => ({ ...prev, elderly: isElderly }));
@@ -645,7 +675,7 @@ export default function IvrSimulatorPage() {
 
     // STEP 9: OPTIONAL NOTE (Decision Step: 1=Record, 2=Skip)
     if (currentStep === 'STEP_9_OPTIONAL_NOTE') {
-      const lang = languageRef.current || payload.language || 'en';
+      const lang = languageRef.current || 'en';
       if (digit === '1') {
         addTranscript('caller', 'Pressed DTMF [1] - Recording optional voice note', 'डीटीएमएफ [1] - अतिरिक्त संदेश रिकॉर्ड कर रहे हैं', 'dtmf');
         setCurrentStep('STEP_9_RECORDING');
@@ -658,19 +688,72 @@ export default function IvrSimulatorPage() {
         );
       } else if (digit === '2') {
         addTranscript('caller', 'Pressed DTMF [2] - Skipped optional voice note', 'डीटीएमएफ [2] - अतिरिक्त संदेश छोड़ा गया', 'dtmf');
-        finalizeCall(null);
+        finalizeCallRef.current?.(null);
       } else {
         addTranscript('ivr', getIvrPrompt('STEP_9_OPTIONAL_NOTE', 'en'), getIvrPrompt('STEP_9_OPTIONAL_NOTE', lang), 'dtmf');
       }
       return;
     }
-  };
+  }, [handleEndCall, addTranscript]);
 
   // ============================================================================
   // VOICE RECORDING SIMULATION (Steps 3, 8, 9)
   // ============================================================================
 
-  const startVoiceRecording = () => {
+  // stopVoiceRecording declared FIRST so startVoiceRecording can safely list it in its deps
+  // Stable useCallback — reads isRecording and currentStep from refs, calls finalizeCall via ref
+  const stopVoiceRecording = useCallback(() => {
+    if (!isRecordingRef.current) return;
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    setIsRecording(false);
+    setRecordingProgress(0);
+
+    const currentStep = currentStepRef.current;
+    const lang = languageRef.current || 'en';
+    const mockAudioId = `mock_audio_${Date.now()}_pcm16.wav`;
+
+    if (currentStep === 'STEP_3_NAME') {
+      setPayload((prev) => ({ ...prev, nameAudio: mockAudioId }));
+      addTranscript(
+        'caller',
+        '🎙️ [Voice Audio Captured: "Ramesh Sharma" (3.0s PCM WAV)]',
+        '🎙️ [ध्वनि रिकॉर्ड की गई: "रमेश शर्मा" (3.0s PCM WAV)]',
+        'voice',
+        'Backend STT Target'
+      );
+      setCurrentStep('STEP_4_PAX');
+      addTranscript(
+        'ivr',
+        getIvrPrompt('STEP_4_PAX', 'en'),
+        getIvrPrompt('STEP_4_PAX', lang),
+        'dtmf',
+        'Awaiting Numeric DTMF + #'
+      );
+    } else if (currentStep === 'STEP_8_LANDMARK') {
+      setPayload((prev) => ({ ...prev, landmarkAudio: mockAudioId }));
+      addTranscript(
+        'caller',
+        '🎙️ [Voice Audio Captured: "Near Shiv Mandir Water Tank, Block B" (3.0s PCM WAV)]',
+        '🎙️ [ध्वनि रिकॉर्ड की गई: "शिव मंदिर पानी की टंकी के पास, ब्लॉक बी" (3.0s PCM WAV)]',
+        'voice',
+        'Backend STT Target'
+      );
+      setCurrentStep('STEP_9_OPTIONAL_NOTE');
+      addTranscript(
+        'ivr',
+        getIvrPrompt('STEP_9_OPTIONAL_NOTE', 'en'),
+        getIvrPrompt('STEP_9_OPTIONAL_NOTE', lang),
+        'dtmf',
+        'Awaiting DTMF: 1 or 2'
+      );
+    } else if (currentStep === 'STEP_9_RECORDING') {
+      finalizeCallRef.current?.(mockAudioId);
+    }
+  }, [addTranscript]);
+
+  // Stable useCallback — currentStep read from ref; stopVoiceRecording is stable so dep is safe
+  const startVoiceRecording = useCallback(() => {
+    const currentStep = currentStepRef.current;
     if (
       currentStep !== 'STEP_3_NAME' &&
       currentStep !== 'STEP_8_LANDMARK' &&
@@ -693,69 +776,22 @@ export default function IvrSimulatorPage() {
         stopVoiceRecording();
       }
     }, 300); // 3-second simulated audio capture
-  };
-
-  const stopVoiceRecording = () => {
-    if (!isRecording) return;
-    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
-    setIsRecording(false);
-    setRecordingProgress(0);
-
-    const mockAudioId = `mock_audio_${Date.now()}_pcm16.wav`;
-
-    if (currentStep === 'STEP_3_NAME') {
-      const lang = languageRef.current || payload.language || 'en';
-      setPayload((prev) => ({ ...prev, nameAudio: mockAudioId }));
-      addTranscript(
-        'caller',
-        '🎙️ [Voice Audio Captured: "Ramesh Sharma" (3.0s PCM WAV)]',
-        '🎙️ [ध्वनि रिकॉर्ड की गई: "रमेश शर्मा" (3.0s PCM WAV)]',
-        'voice',
-        'Backend STT Target'
-      );
-      setCurrentStep('STEP_4_PAX');
-      addTranscript(
-        'ivr',
-        getIvrPrompt('STEP_4_PAX', 'en'),
-        getIvrPrompt('STEP_4_PAX', lang),
-        'dtmf',
-        'Awaiting Numeric DTMF + #'
-      );
-    } else if (currentStep === 'STEP_8_LANDMARK') {
-      const lang = languageRef.current || payload.language || 'en';
-      setPayload((prev) => ({ ...prev, landmarkAudio: mockAudioId }));
-      addTranscript(
-        'caller',
-        '🎙️ [Voice Audio Captured: "Near Shiv Mandir Water Tank, Block B" (3.0s PCM WAV)]',
-        '🎙️ [ध्वनि रिकॉर्ड की गई: "शिव मंदिर पानी की टंकी के पास, ब्लॉक बी" (3.0s PCM WAV)]',
-        'voice',
-        'Backend STT Target'
-      );
-      setCurrentStep('STEP_9_OPTIONAL_NOTE');
-      addTranscript(
-        'ivr',
-        getIvrPrompt('STEP_9_OPTIONAL_NOTE', 'en'),
-        getIvrPrompt('STEP_9_OPTIONAL_NOTE', lang),
-        'dtmf',
-        'Awaiting DTMF: 1 or 2'
-      );
-    } else if (currentStep === 'STEP_9_RECORDING') {
-      finalizeCall(mockAudioId);
-    }
-  };
+  }, [stopVoiceRecording]);
 
   // ============================================================================
   // FINAL INTEGRATION: SEND PAYLOAD TO BACKEND PROCESSOR
   // ============================================================================
 
-  const finalizeCall = async (noteAudioId: string | null) => {
+  // Stable useCallback — reads payload and callDuration from refs
+  const finalizeCall = useCallback(async (noteAudioId: string | null) => {
     setIsProcessingStt(true);
 
+    const payload = payloadRef.current;
     const updatedPayload: IvrCollectedData = {
       ...payload,
       optionalNoteAudio: noteAudioId,
       callEndedAt: new Date().toISOString(),
-      durationSeconds: callDuration,
+      durationSeconds: callDurationRef.current,
     };
     setPayload(updatedPayload);
 
@@ -835,7 +871,10 @@ export default function IvrSimulatorPage() {
       setIsProcessingStt(false);
       setCurrentStep('CALL_ENDED');
     }
-  };
+  }, [addTranscript]);
+
+  // Wire finalizeCallRef so handleKeyPress and stopVoiceRecording can call it without circular deps
+  finalizeCallRef.current = finalizeCall;
 
   const copyJsonPayload = () => {
     const dataToCopy = backendResponse ? { clientPayload: payload, backendResponse } : payload;
@@ -947,13 +986,11 @@ export default function IvrSimulatorPage() {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [
+    // Only truly reactive deps — isMuted/inputBuffer/payload now read via refs inside stable callbacks
     currentStep,
     isProcessingStt,
-    isMuted,
-    inputBuffer,
-    payload,
-    isRecording,
     isAudioCaptureActive,
+    isRecording,
     handleKeyPress,
     handleStartCall,
     startVoiceRecording,
@@ -982,7 +1019,7 @@ export default function IvrSimulatorPage() {
             <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2.5 py-1 rounded shadow-sm">
               <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
               <span className="font-semibold text-slate-700">IVR Audio Engine:</span>
-              <span className="font-mono text-slate-500">Fast Whisper STT + Supabase GIS</span>
+              <span className="font-mono text-slate-500">Whisper STT &amp; Geospatial Routing</span>
             </div>
 
             <button
@@ -1018,7 +1055,7 @@ export default function IvrSimulatorPage() {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Simulated 9-step emergency helpline for non-smartphone users with DTMF keypad, Fast Whisper STT &amp; GIS dispatch.
+                   Simulated 9-step emergency helpline for non-smartphone users with DTMF keypad, Whisper STT &amp; Geospatial Routing dispatch.
                 </p>
               </div>
             </div>
@@ -1134,7 +1171,7 @@ export default function IvrSimulatorPage() {
                       <div className="text-center py-2 space-y-1">
                         <Loader2 className="w-6 h-6 mx-auto text-cyan-400 animate-spin" />
                         <p className="font-bold text-cyan-200">Transmitting to EOC Command...</p>
-                        <p className="text-[10px] text-slate-400">Processing Fast Whisper STT &amp; GIS coordinates</p>
+                        <p className="text-[10px] text-slate-400">Processing Whisper STT &amp; Geospatial Routing</p>
                       </div>
                     ) : (
                       <>
@@ -1351,7 +1388,7 @@ export default function IvrSimulatorPage() {
             <div className="p-3 bg-white border border-slate-200 rounded-sm text-xs text-slate-600 flex items-start gap-2.5 shadow-sm">
               <Info className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-slate-800">Hardware Independence:</span> Operates on basic 2G GSM handsets with DTMF signaling and server-side Fast Whisper STT ingestion.
+                <span className="font-semibold text-slate-800">Hardware Independence:</span> Operates on basic 2G GSM handsets with DTMF signaling and server-side Whisper STT ingestion.
               </div>
             </div>
           </div>
