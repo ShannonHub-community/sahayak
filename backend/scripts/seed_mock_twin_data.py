@@ -20,7 +20,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Walk up to the root directory or backend directory to find the .env file
+backend_dir = Path(__file__).resolve().parent.parent
+root_dir = backend_dir.parent
+load_dotenv(dotenv_path=root_dir / ".env")
+load_dotenv(dotenv_path=backend_dir / ".env")
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../.env'))
 
@@ -44,20 +50,60 @@ async def seed_mock_twin_data():
     except Exception as e:
         print(f"  -> Warning while clearing: {e}")
 
-    # 12 diverse disaster scenario records distributed across Panvel (Lng: 73.10 - 73.13, Lat: 18.98 - 19.01)
+    # 16 disaster scenario records distributed across Panvel (Lng: 73.10 - 73.13, Lat: 18.98 - 19.01)
     twin_state_records = [
-        # 1. 4x SOS Reports (severity_count from 2 to 45 for size scaling test)
+        # --- Flood Observation Points (matching former MOCK_FLOOD_POINTS) ---
         {
-            "id": str(uuid.uuid4()),
-            "entity_type": "sos_report",
-            "location": "SRID=4326;POINT(73.1166 18.9894)",
-            "symbol": "sos",
-            "severity_count": 2,
+            "id": "11111111-1111-1111-1111-111111111101",
+            "entity_type": "flood_zone",
+            "location": "SRID=4326;POINT(73.1090 18.9950)",
+            "symbol": "flood",
+            "severity_count": 42,  # 4.2m depth (Kalundre Riverbank West Basin)
+            "status": "critical",
+            "last_updated": now_iso,
+        },
+        {
+            "id": "11111111-1111-1111-1111-111111111102",
+            "entity_type": "flood_zone",
+            "location": "SRID=4326;POINT(73.1160 18.9890)",
+            "symbol": "flood",
+            "severity_count": 26,  # 2.6m depth (Panvel Market Yard Lowlands)
             "status": "active",
             "last_updated": now_iso,
         },
         {
-            "id": str(uuid.uuid4()),
+            "id": "11111111-1111-1111-1111-111111111103",
+            "entity_type": "flood_zone",
+            "location": "SRID=4326;POINT(73.1250 18.9820)",
+            "symbol": "flood",
+            "severity_count": 35,  # 3.5m depth (Gadhi River Confluence)
+            "status": "critical",
+            "last_updated": now_iso,
+        },
+        {
+            "id": "11111111-1111-1111-1111-111111111104",
+            "entity_type": "flood_zone",
+            "location": "SRID=4326;POINT(73.1210 19.0040)",
+            "symbol": "flood",
+            "severity_count": 18,  # 1.8m depth (Takka Colony Spillway)
+            "status": "active",
+            "last_updated": now_iso,
+        },
+
+        # --- SOS Reports ---
+        # HERO SCENARIO: 45 stranded citizens next to Kalundre Riverbank breach zone
+        {
+            "id": "22222222-2222-2222-2222-222222222201",
+            "entity_type": "sos_report",
+            "location": "SRID=4326;POINT(73.1095 18.9955)",  # Adjacent to Kalundre breach (73.1090 18.9950)
+            "symbol": "sos",
+            "severity_count": 45,
+            "status": "critical",
+            "last_updated": now_iso,
+        },
+        # Background Scattered Noise
+        {
+            "id": "22222222-2222-2222-2222-222222222202",
             "entity_type": "sos_report",
             "location": "SRID=4326;POINT(73.1235 18.9962)",
             "symbol": "sos",
@@ -66,7 +112,7 @@ async def seed_mock_twin_data():
             "last_updated": now_iso,
         },
         {
-            "id": str(uuid.uuid4()),
+            "id": "22222222-2222-2222-2222-222222222203",
             "entity_type": "sos_report",
             "location": "SRID=4326;POINT(73.1072 18.9845)",
             "symbol": "sos",
@@ -75,12 +121,12 @@ async def seed_mock_twin_data():
             "last_updated": now_iso,
         },
         {
-            "id": str(uuid.uuid4()),
+            "id": "22222222-2222-2222-2222-222222222204",
             "entity_type": "sos_report",
             "location": "SRID=4326;POINT(73.1190 19.0065)",
             "symbol": "sos",
-            "severity_count": 45,
-            "status": "critical",
+            "severity_count": 12,
+            "status": "active",
             "last_updated": now_iso,
         },
 

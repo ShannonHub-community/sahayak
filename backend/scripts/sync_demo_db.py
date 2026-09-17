@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Load .env file from project root or backend
 backend_dir = Path(__file__).resolve().parent.parent
 root_dir = backend_dir.parent
@@ -52,18 +54,19 @@ async def sync_demo_database():
     await clear_table(client, "sos_reports")
     await clear_table(client, "resources")
     await clear_table(client, "risk_scores")
+    await clear_table(client, "tickets")
 
     # 2. Insert Digital Twin Map Markers (`twin_state`)
     # Matches the exact coordinates and points on DigitalTwinMap.tsx
     print("\n2. Inserting Digital Twin state records into 'twin_state'...")
     twin_state_records = [
-        # --- Flood Observation Points (matching MOCK_FLOOD_POINTS) ---
+        # --- Flood Observation Points (matching former MOCK_FLOOD_POINTS) ---
         {
             "id": "11111111-1111-1111-1111-111111111101",
             "entity_type": "flood_zone",
             "location": "SRID=4326;POINT(73.1090 18.9950)",
-            "symbol": "triangle_alert",
-            "severity_count": 42,  # 4.2m depth (Kalundre Riverbank)
+            "symbol": "flood",
+            "severity_count": 42,  # 4.2m depth (Kalundre Riverbank West Basin)
             "status": "critical",
             "last_updated": now_iso,
         },
@@ -71,8 +74,8 @@ async def sync_demo_database():
             "id": "11111111-1111-1111-1111-111111111102",
             "entity_type": "flood_zone",
             "location": "SRID=4326;POINT(73.1160 18.9890)",
-            "symbol": "triangle_alert",
-            "severity_count": 26,  # 2.6m depth (Market Yard Lowlands)
+            "symbol": "flood",
+            "severity_count": 26,  # 2.6m depth (Panvel Market Yard Lowlands)
             "status": "active",
             "last_updated": now_iso,
         },
@@ -80,7 +83,7 @@ async def sync_demo_database():
             "id": "11111111-1111-1111-1111-111111111103",
             "entity_type": "flood_zone",
             "location": "SRID=4326;POINT(73.1250 18.9820)",
-            "symbol": "triangle_alert",
+            "symbol": "flood",
             "severity_count": 35,  # 3.5m depth (Gadhi River Confluence)
             "status": "critical",
             "last_updated": now_iso,
@@ -89,26 +92,28 @@ async def sync_demo_database():
             "id": "11111111-1111-1111-1111-111111111104",
             "entity_type": "flood_zone",
             "location": "SRID=4326;POINT(73.1210 19.0040)",
-            "symbol": "triangle_alert",
+            "symbol": "flood",
             "severity_count": 18,  # 1.8m depth (Takka Colony Spillway)
             "status": "active",
             "last_updated": now_iso,
         },
 
         # --- SOS Reports (Active Incidents in Panvel) ---
+        # HERO SCENARIO: 45 stranded citizens next to Kalundre Riverbank breach zone
         {
             "id": "22222222-2222-2222-2222-222222222201",
             "entity_type": "sos_report",
-            "location": "SRID=4326;POINT(73.1166 18.9894)",
+            "location": "SRID=4326;POINT(73.1095 18.9955)",  # Adjacent to Kalundre breach (73.1090 18.9950)
             "symbol": "sos",
-            "severity_count": 15,
+            "severity_count": 45,
             "status": "critical",
             "last_updated": now_iso,
         },
+        # Background Scattered Noise
         {
             "id": "22222222-2222-2222-2222-222222222202",
             "entity_type": "sos_report",
-            "location": "SRID=4326;POINT(73.1235 18.9962)",
+            "location": "SRID=4326;POINT(73.1235 18.9962)",  # Line Ali
             "symbol": "sos",
             "severity_count": 8,
             "status": "active",
@@ -117,7 +122,7 @@ async def sync_demo_database():
         {
             "id": "22222222-2222-2222-2222-222222222203",
             "entity_type": "sos_report",
-            "location": "SRID=4326;POINT(73.1072 18.9845)",
+            "location": "SRID=4326;POINT(73.1072 18.9845)",  # Market Yard Lowlands
             "symbol": "sos",
             "severity_count": 22,
             "status": "critical",
@@ -126,10 +131,10 @@ async def sync_demo_database():
         {
             "id": "22222222-2222-2222-2222-222222222204",
             "entity_type": "sos_report",
-            "location": "SRID=4326;POINT(73.1190 19.0065)",
+            "location": "SRID=4326;POINT(73.1190 19.0065)",  # Takka Naka
             "symbol": "sos",
-            "severity_count": 45,
-            "status": "critical",
+            "severity_count": 12,
+            "status": "active",
             "last_updated": now_iso,
         },
 
@@ -214,21 +219,23 @@ async def sync_demo_database():
     # 3. Insert SOS Reports (`sos_reports`)
     print("\n3. Inserting SOS reports into 'sos_reports'...")
     sos_records = [
+        # --- HERO SCENARIO INCIDENT ---
         {
             "id": "22222222-2222-2222-2222-222222222201",
-            "name": "Ward 1 Stranded Residents Group",
+            "name": "Kalundre River Breach Stranded Group (HERO)",
             "phone": "+91-9820011223",
-            "pax_count": 15,
+            "pax_count": 45,
             "medical_emergency": True,
             "includes_infants": True,
             "includes_elderly": True,
-            "location": "SRID=4326;POINT(73.1166 18.9894)",
-            "landmark": "Near Kalundre Riverbank, Ward 1 Old Panvel",
+            "location": "SRID=4326;POINT(73.1095 18.9955)",  # Adjacent to Kalundre breach
+            "landmark": "Kalundre Riverbank breach zone, Sector 1 Lowlands",
             "transmission_method": "web",
             "status": "critical",
             "created_at": now_iso,
             "updated_at": now_iso,
         },
+        # --- Background Scattered Incidents ---
         {
             "id": "22222222-2222-2222-2222-222222222202",
             "name": "Line Ali Senior Citizens",
@@ -256,6 +263,21 @@ async def sync_demo_database():
             "landmark": "Panvel Market Yard Lowlands, Sector 4",
             "transmission_method": "web",
             "status": "critical",
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        },
+        {
+            "id": "22222222-2222-2222-2222-222222222204",
+            "name": "Takka Naka Cutoff Community",
+            "phone": "+91-9820033445",
+            "pax_count": 12,
+            "medical_emergency": False,
+            "includes_infants": True,
+            "includes_elderly": False,
+            "location": "SRID=4326;POINT(73.1190 19.0065)",
+            "landmark": "Takka Naka High-Rise Cutoff, Ward 3",
+            "transmission_method": "ble",
+            "status": "active",
             "created_at": now_iso,
             "updated_at": now_iso,
         },
