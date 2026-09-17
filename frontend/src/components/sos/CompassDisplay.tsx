@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { 
   ShieldCheck, 
   MapPin, 
@@ -305,6 +306,14 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
           <Phone className="w-4 h-4" />
           <span>Call 112 Control Room</span>
         </a>
+
+        <Link
+          href="/citizen/guides"
+          className="flex-1 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm py-3 px-4 rounded-sm flex items-center justify-center gap-2 border border-emerald-700 text-center transition-colors shadow-sm"
+        >
+          <Radio className="w-4 h-4" />
+          <span>Open Offline Survival Protocols</span>
+        </Link>
 
         <button
           type="button"

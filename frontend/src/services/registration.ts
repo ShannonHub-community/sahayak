@@ -29,6 +29,16 @@ export function generateSampleGuides(citizenId: string, payload: CitizenRegistra
           title: 'Renal / Dialysis Critical Access Protocol',
           protocol: 'Strictly limit daily fluid intake to 500ml above urine output if dialysis is delayed. Panvel MGM Hospital runs emergency hemodialysis.',
         };
+      } else if (/epilepsy|neurological/i.test(d)) {
+        diseaseGuides['Epilepsy'] = {
+          title: 'Epilepsy / Seizure Management Protocol',
+          protocol: 'Keep anti-epileptic drugs (AEDs) in a waterproof container. Ensure the patient is kept away from fast-flowing water or heights during evacuation. If a seizure occurs, clear the area of sharp objects, cushion their head, and do not restrain them.',
+        };
+      } else if (/disability|wheelchair/i.test(d)) {
+        diseaseGuides['Mobility'] = {
+          title: 'Mobility & Evacuation Assistance Protocol',
+          protocol: 'Secure mobility aids (crutches, wheelchair) if possible, but prioritize personal safety. If manual lifting is required, use the two-person carry method. Ensure rescue teams are notified immediately of your exact location and mobility status via the SOS portal.',
+        };
       }
     }
   }

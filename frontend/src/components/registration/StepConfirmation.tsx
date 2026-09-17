@@ -161,6 +161,13 @@ export const StepConfirmation: React.FC<StepConfirmationProps> = ({
       {/* Navigation Return Button */}
       <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
         <Link
+          href="/citizen/guides"
+          className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm px-6 py-3 rounded-sm border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          <span>Open Your Personalized Offline Survival Guide</span>
+        </Link>
+        <Link
           href="/"
           className="w-full sm:w-auto bg-[#0B3D6E] hover:bg-[#07284B] active:bg-[#04172C] text-white font-bold text-sm px-6 py-3 rounded-sm border border-blue-900 shadow-md flex items-center justify-center gap-2 transition-colors"
         >
