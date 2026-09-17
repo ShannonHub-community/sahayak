@@ -73,8 +73,14 @@ export interface BlePeer {
 export interface BleChatMessage {
   id: string;
   senderId: string;
+  senderName?: string;
   text: string;
   timestamp: string;
+  // Mesh radio telemetry metadata
+  hops?: number;         // Simulated packet hop count (1–3)
+  rssi?: number;         // Received signal strength in dBm (e.g. -65 to -85)
+  batteryLevel?: number; // Transmitting node battery % (e.g. 60–95)
+  isAmbient?: boolean;   // True for unsolicited ambient bulletins
 }
 
 export interface LocalPeerProfile {
@@ -100,9 +106,9 @@ export interface UseBleMeshReturn {
   scanForPeers: () => Promise<BlePeer | null>;
   disconnectPeer: (deviceId: string) => void;
 
-  // Ephemeral messaging
+  // Ephemeral messaging (single unified broadcast feed)
   messages: BleChatMessage[];
-  sendMessage: (targetDeviceId: string, text: string) => Promise<boolean>;
+  sendMessage: (text: string, targetDeviceId?: string) => Promise<boolean>;
   clearMessages: () => void;
 
   // Diagnostics & Status
@@ -124,16 +130,63 @@ const MOCK_PEERS: BlePeer[] = [
   {
     deviceId: 'dev-demo-8831',
     peerId: 'CIT-DEMO-8831',
-    peerName: 'Rahul (Test Device 1)',
+    peerName: 'Rahul (Relay Node - 15m away)',
     connected: true,
   },
   {
     deviceId: 'dev-demo-9942',
     peerId: 'CIT-DEMO-9942',
-    peerName: 'Priya (Test Device 2)',
+    peerName: 'Priya (Shelter Coordinator - 40m away)',
     connected: true,
   },
 ];
+
+// ============================================================================
+// AMBIENT SITUATIONAL BULLETIN POOL
+// Unsolicited background transmissions injected into the mesh broadcast feed.
+// ============================================================================
+
+const AMBIENT_BULLETINS: Array<{ senderId: string; senderName: string; text: string }> = [
+  {
+    senderId: 'CIT-DEMO-9942',
+    senderName: 'Priya (Shelter Coordinator - 40m away)',
+    text: 'BULLETIN: NDMA relief truck reached Sector 4 primary school junction with water packets and ORS sachets. Estimated distribution start: 20 minutes.',
+  },
+  {
+    senderId: 'CIT-DEMO-8831',
+    senderName: 'Rahul (Relay Node - 15m away)',
+    text: 'BULLETIN: Culvert water level receded by 15 cm along the elevated rail approach. Confirmed safe for pedestrian crossing. Avoid ground-level underpass.',
+  },
+  {
+    senderId: 'CIT-RELAY-0004',
+    senderName: 'Relief Boat 04 (Mobile Node)',
+    text: 'BULLETIN: Mobile patrol active along sector perimeter. Flash high-contrast cloth or phone flashlight if stranded on rooftop. We are scanning rooftop signatures.',
+  },
+  {
+    senderId: 'CIT-DEMO-9942',
+    senderName: 'Priya (Shelter Coordinator - 40m away)',
+    text: 'BULLETIN: Municipal High School shelter at capacity. Overflow relief point active at Pillai Engineering College ground floor. 47 persons currently sheltered.',
+  },
+  {
+    senderId: 'CIT-DEMO-8831',
+    senderName: 'Rahul (Relay Node - 15m away)',
+    text: 'BULLETIN: NDRF rope-rescue team deployed at Sector 4 substation crossroads. If within 300m, broadcast SOS on this channel immediately for priority extraction.',
+  },
+  {
+    senderId: 'CIT-RELAY-0004',
+    senderName: 'Relief Boat 04 (Mobile Node)',
+    text: 'BULLETIN: Power grid in sub-zone 4B still offline. Do not attempt to restart main MCBs until MSEDCL crew gives all-clear. ETA 3-4 hours.',
+  },
+];
+
+// Helper: generate realistic mesh telemetry for incoming packets
+function generateTelemetry(): { hops: number; rssi: number; batteryLevel: number } {
+  return {
+    hops: 1 + Math.floor(Math.random() * 3),              // 1 to 3
+    rssi: -(65 + Math.floor(Math.random() * 21)),          // -65 to -85 dBm
+    batteryLevel: 60 + Math.floor(Math.random() * 36),    // 60% to 95%
+  };
+}
 
 // ============================================================================
 // CONTEXT-AWARE MOCK RESPONSES FOR DISASTER BLE MESH CHAT
@@ -355,6 +408,10 @@ export function useBleMesh(): UseBleMeshReturn {
     const profile = parseLocalProfile();
     setLocalPeer(profile || (isDemoMode ? DEFAULT_LOCAL_PEER : null));
 
+    if (isDemoMode) {
+      setPeers(MOCK_PEERS);
+    }
+
     // Synchronize if profile changes in storage
     const handleStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY_CACHED_PROFILE) {
@@ -377,12 +434,19 @@ export function useBleMesh(): UseBleMeshReturn {
     setIsDemoMode((prev) => {
       const nextMode = typeof enable === 'boolean' ? enable : !prev;
       if (nextMode) {
+        // Switching TO simulation: restore mock mesh state
         setLocalPeer((curr) => curr || DEFAULT_LOCAL_PEER);
+        setPeers(MOCK_PEERS);
       } else {
+        // Switching TO physical BLE: clear simulated state, ready for real hardware scan
         setLocalPeer(parseLocalProfile());
+        setPeers([]);
+        setMessages([]);
       }
       return nextMode;
     });
+    // Always reset scanning state on mode switch
+    setIsScanning(false);
     setError(null);
   }, []);
 
@@ -393,6 +457,43 @@ export function useBleMesh(): UseBleMeshReturn {
   const clearMessages = useCallback(() => {
     setMessages([]);
   }, []);
+
+  // Ambient background bulletin transmissions (demo mode only)
+  // Fires every 30–45 seconds when peers are connected, simulating unsolicited mesh traffic
+  useEffect(() => {
+    if (!isDemoMode) return;
+
+    const ambientIndicesRef = { current: 0 };
+
+    const scheduleNext = () => {
+      const delayMs = 30000 + Math.floor(Math.random() * 15000); // 30–45 seconds
+      return setTimeout(() => {
+        const bulletin = AMBIENT_BULLETINS[ambientIndicesRef.current % AMBIENT_BULLETINS.length];
+        ambientIndicesRef.current += 1;
+        const telemetry = generateTelemetry();
+
+        const ambientMessage: BleChatMessage = {
+          id: `ble-ambient-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          senderId: bulletin.senderId,
+          senderName: bulletin.senderName,
+          text: bulletin.text,
+          timestamp: new Date().toISOString(),
+          isAmbient: true,
+          ...telemetry,
+        };
+        setMessages((prev) => [...prev, ambientMessage]);
+
+        // Schedule the next one recursively
+        timerId = scheduleNext();
+      }, delayMs);
+    };
+
+    let timerId = scheduleNext();
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [isDemoMode]);
 
   const disconnectPeer = useCallback((deviceId: string) => {
     if (connectedDevicesRef.current.has(deviceId)) {
@@ -529,44 +630,52 @@ export function useBleMesh(): UseBleMeshReturn {
 
   /**
    * Send message:
-   * - Demo Mode: Immediately appends message, then triggers a 2-4s delayed contextual peer auto-reply
+   * - Appends message to single, unified public broadcast feed
+   * - Demo Mode: Randomly selects an active peer from the mesh to act as sender for contextual reply (2-4s latency)
    * - Hardware Mode: Encodes packet and writes to CHAT_MESSAGE_CHAR_UUID GATT characteristic
    */
   const sendMessage = useCallback(
-    async (targetDeviceId: string, text: string): Promise<boolean> => {
-      const trimmed = text.trim();
-      if (!trimmed) return false;
+    async (textOrTarget: string, maybeText?: string): Promise<boolean> => {
+      const text = (maybeText !== undefined ? maybeText : textOrTarget).trim();
+      const targetDeviceId = maybeText !== undefined ? textOrTarget : undefined;
+      if (!text) return false;
 
       const senderId = localPeer?.peerId || (isDemoMode ? 'CIT-LOCAL' : 'CITIZEN-LOCAL');
+      const senderName = 'You (Local Node)';
       const timestamp = new Date().toISOString();
 
       const messageObj: BleChatMessage = {
         id: `ble-msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         senderId,
-        text: trimmed,
+        senderName,
+        text,
         timestamp,
       };
 
-      // 1. Maintain in-memory in React state
+      // 1. Maintain in-memory in React state (unified global broadcast feed)
       setMessages((prev) => [...prev, messageObj]);
 
       // 2. DEMO MODE: Simulate peer response with 2-4s realistic radio latency
       if (isDemoMode) {
-        const targetPeer =
-          peers.find((p) => p.deviceId === targetDeviceId) ||
-          MOCK_PEERS.find((p) => p.deviceId === targetDeviceId) ||
-          MOCK_PEERS[0];
-        const replySenderId = targetPeer.peerId;
+        // Randomly select an active peer from the mesh to act as the sender
+        const candidatePool = (peers.length > 0 ? peers : MOCK_PEERS).filter((p) => p.connected);
+        const activePool = candidatePool.length > 0 ? candidatePool : MOCK_PEERS;
+        const randomPeer = activePool[Math.floor(Math.random() * activePool.length)];
+
+        const replySenderId = randomPeer.peerId;
+        const replySenderName = randomPeer.peerName;
 
         const delayMs = 2000 + Math.floor(Math.random() * 2000); // 2000ms - 4000ms
-        const replyText = generateContextualPeerReply(trimmed, replyCategoryIndicesRef.current);
+        const replyText = generateContextualPeerReply(text, replyCategoryIndicesRef.current);
 
         setTimeout(() => {
           const replyMessage: BleChatMessage = {
             id: `ble-reply-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             senderId: replySenderId,
+            senderName: replySenderName,
             text: replyText,
             timestamp: new Date().toISOString(),
+            ...generateTelemetry(),
           };
           setMessages((prev) => [...prev, replyMessage]);
         }, delayMs);
@@ -575,7 +684,10 @@ export function useBleMesh(): UseBleMeshReturn {
       }
 
       // 3. HARDWARE MODE: Dispatch packet over GATT characteristic if connected
-      const device = connectedDevicesRef.current.get(targetDeviceId);
+      const device = targetDeviceId
+        ? connectedDevicesRef.current.get(targetDeviceId)
+        : connectedDevicesRef.current.values().next().value;
+
       if (device && device.gatt && device.gatt.connected) {
         try {
           const service = await device.gatt.getPrimaryService(SAHAYAK_SERVICE_UUID);
@@ -583,7 +695,8 @@ export function useBleMesh(): UseBleMeshReturn {
           const encoder = new TextEncoder();
           const payload = JSON.stringify({
             senderId,
-            text: trimmed,
+            senderName,
+            text,
             timestamp,
           });
 
