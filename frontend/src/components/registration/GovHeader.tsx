@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   PhoneCall, 
-  Wifi, 
-  WifiOff, 
   Shield, 
   Menu, 
   X, 
@@ -93,10 +91,10 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
             {offlineGuidesReady && (
               <Link 
                 href="/citizen/guides"
-                className="flex items-center gap-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 hover:text-emerald-200 border border-emerald-700 hover:border-emerald-500 px-2 py-0.5 rounded font-medium shadow-sm transition-all cursor-pointer"
+                className="flex items-center gap-1.5 border border-emerald-500 text-emerald-700 hover:bg-emerald-50 bg-transparent px-2 py-0.5 rounded font-medium shadow-sm transition-all cursor-pointer"
                 title="Tap to view saved offline survival guides & protocols"
               >
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 <span className="hidden sm:inline">Offline Guides Available</span>
                 <span className="sm:hidden">Offline Guides</span>
               </Link>
@@ -104,21 +102,17 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
 
             {/* Network Status Badge */}
             <div
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-mono font-medium ${
-                isOnline
-                  ? 'bg-emerald-900/80 text-emerald-200 border border-emerald-700'
-                  : 'bg-red-950 text-red-200 border border-red-800'
-              }`}
+              className="flex items-center gap-1.5 font-medium text-[11px] text-gray-700"
               title={isOnline ? 'Connected to National Grid' : 'Offline mode active (SMS ready)'}
             >
               {isOnline ? (
                 <>
-                  <Wifi className="w-3 h-3 text-emerald-400" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                   <span>ONLINE</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-3 h-3 text-red-400" />
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
                   <span>OFFLINE (SMS)</span>
                 </>
               )}
@@ -212,20 +206,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Emergency SOS</span>
             </Link>
 
-            {/* 2. Live Alerts & News Report Tab */}
-            <Link
-              href="/citizen/news-report"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
-                pathname === '/citizen/news-report' || pathname === '/citizen/updates'
-                  ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
-                  : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-              <span>Live Alerts &amp; News</span>
-            </Link>
-
-            {/* 3. Citizen Registration Tab */}
+            {/* 2. Citizen Registration Tab */}
             <Link
               href="/citizen/register"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap ${
@@ -238,7 +219,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Pre-Register</span>
             </Link>
 
-            {/* 4. Offline BLE Chat */}
+            {/* 3. Offline BLE Chat */}
             <Link
               href="/citizen/ble"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -251,7 +232,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Offline Chat</span>
             </Link>
 
-            {/* 5. IVR Call Simulator */}
+            {/* 4. IVR Call Simulator */}
             <Link
               href="/citizen/ivr"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -264,7 +245,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>IVR Call Simulator</span>
             </Link>
 
-            {/* 6. Relief Donations Tab */}
+            {/* 5. Relief Donations Tab */}
             <Link
               href="/citizen/donation"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${

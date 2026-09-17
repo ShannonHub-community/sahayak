@@ -224,29 +224,48 @@ export const RegistrationWizard: React.FC = () => {
           </div>
         </div>
 
-        {/* Step Indicator Tabs (Interactive) */}
+        {/* Step Indicator Tabs (Interactive with Progression Lock) */}
         {currentStep <= 3 && (
           <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-blue-800">
             {STEPS.map((step) => {
               const isCurrent = currentStep === step.id;
               const isDone = currentStep > step.id;
+              const isNext = step.id === currentStep + 1;
+              const isLocked = step.id > currentStep + 1;
 
               return (
                 <button
                   type="button"
                   key={step.id}
+                  disabled={isLocked}
+                  aria-current={isCurrent ? 'step' : undefined}
                   onClick={() => {
-                    setStepError(null);
-                    setCurrentStep(step.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    if (step.id < currentStep) {
+                      setStepError(null);
+                      setCurrentStep(step.id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else if (step.id === currentStep + 1) {
+                      handleNextStep();
+                    }
                   }}
-                  className={`p-2 rounded-sm border transition-colors flex items-center gap-2 text-left cursor-pointer ${
+                  className={`p-2 rounded-sm border transition-colors flex items-center gap-2 text-left ${
                     isCurrent
-                      ? 'bg-white text-[#0B3D6E] border-white font-bold shadow-sm'
+                      ? 'bg-white text-[#0B3D6E] border-white font-bold shadow-sm cursor-default'
                       : isDone
-                      ? 'bg-blue-900/60 text-blue-100 border-blue-700 hover:bg-blue-800/80'
-                      : 'bg-blue-950/40 text-blue-300 border-blue-900/60 hover:bg-blue-900/50'
+                      ? 'bg-blue-900/60 text-blue-100 border-blue-700 hover:bg-blue-800/80 cursor-pointer'
+                      : isNext
+                      ? 'bg-blue-950/40 text-blue-300 border-blue-900/60 hover:bg-blue-900/50 cursor-pointer'
+                      : 'bg-blue-950/20 text-blue-400/50 border-blue-900/30 opacity-50 cursor-not-allowed'
                   }`}
+                  title={
+                    isLocked
+                      ? `Complete previous steps to unlock ${step.title}`
+                      : isNext
+                      ? `Continue to ${step.title}`
+                      : isDone
+                      ? `Return to ${step.title}`
+                      : step.title
+                  }
                 >
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
@@ -254,6 +273,8 @@ export const RegistrationWizard: React.FC = () => {
                         ? 'bg-[#0B3D6E] text-white'
                         : isDone
                         ? 'bg-emerald-500 text-white'
+                        : isLocked
+                        ? 'bg-blue-950 text-blue-400/40 border border-blue-900/40'
                         : 'bg-blue-800 text-blue-200'
                     }`}
                   >
