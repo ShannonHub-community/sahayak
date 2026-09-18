@@ -576,7 +576,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
           </div>
 
           <MiniMap
-            mode="live"
+            mode="pick"
             location={currentLocation}
             onLocationChange={(loc: SOSLocation) => setCurrentLocation(loc)}
             onRefreshLocation={acquireGPS}
@@ -584,6 +584,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
             locationError={locationError}
             className="mb-2"
           />
+
 
           <div className="mt-2">
             <label htmlFor="sos-landmark" className="block text-xs font-bold text-gray-800 mb-1">

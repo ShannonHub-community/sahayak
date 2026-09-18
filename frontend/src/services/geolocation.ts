@@ -24,8 +24,11 @@ export async function getRealCoordinates(options?: GeolocationOptions): Promise<
   }
 
   if (window.isSecureContext === false) {
+    // On plain-HTTP LAN addresses (e.g. 192.168.x.x:3000) browsers block
+    // navigator.geolocation entirely. Surface a user-friendly error that
+    // the caller can catch and degrade gracefully into manual map-pin mode.
     throw new Error(
-      'Location access requires a secure HTTPS connection or localhost. Please pin your location manually on the map.'
+      'Location requires HTTPS or localhost. Please tap the map to pin your location manually.'
     );
   }
 
@@ -60,8 +63,12 @@ export async function getRealCoordinates(options?: GeolocationOptions): Promise<
   };
 
   const highAccuracy = options?.enableHighAccuracy ?? true;
-  const timeoutMs = options?.timeout ?? 20000;
-  const maxAgeMs = options?.maximumAge ?? 0;
+  // 10 s is ample on modern devices; the 20 s original caused a 35-second
+  // worst-case stall (Stage 1 + Stage 2) before the user could fall back.
+  const timeoutMs = options?.timeout ?? 10000;
+  // Reuse a cached position that is at most 15 seconds old. This avoids a
+  // GPS hardware cold-start when the OS has fresh coordinates available.
+  const maxAgeMs = options?.maximumAge ?? 15000;
 
   try {
     // 1. Primary GPS hardware positioning with 20-second timeout & maximumAge: 0
@@ -74,11 +81,12 @@ export async function getRealCoordinates(options?: GeolocationOptions): Promise<
       );
     }
 
-    // 2. If high-accuracy timed out or is unavailable (e.g. indoors or on laptops without dedicated GPS hardware),
-    // fallback to network/Wi-Fi positioning before giving up
+    // 2. If high-accuracy timed out or is unavailable (e.g. indoors or on
+    // laptops without dedicated GPS hardware), fallback to network/Wi-Fi
+    // positioning before giving up.
     if (highAccuracy) {
       try {
-        return await queryPosition(false, 15000, 10000);
+        return await queryPosition(false, 8000, 15000);
       } catch (fallbackErr: any) {
         let message = 'GPS location request timed out. Please tap "Use Current Location" to retry or tap the map to pin.';
         if (fallbackErr?.code === 1 /* PERMISSION_DENIED */) {

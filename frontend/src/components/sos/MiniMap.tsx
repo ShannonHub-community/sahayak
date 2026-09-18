@@ -743,7 +743,7 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                 <>
                   <span className="flex items-center gap-1 text-[#0B3D6E] font-bold">
                     <span className="w-2 h-2 rounded-full bg-[#0B3D6E]" />
-                    <span>You: {location ? `${location.lat.toFixed(3)}°, ${location.lng.toFixed(3)}°` : 'Submitted'}</span>
+                    <span>You: {location ? `${location.lat.toFixed(4)}°, ${location.lng.toFixed(4)}°` : 'Submitted'}</span>
                   </span>
                   <span className="text-gray-400">|</span>
                   <span className="flex items-center gap-1 text-emerald-800 font-bold truncate max-w-[200px] sm:max-w-none">
