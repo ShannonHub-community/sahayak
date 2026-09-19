@@ -233,7 +233,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               <span>Offline Chat</span>
             </Link>
 
-            {/* 4. IVR Call Simulator */}
+            {/* 4. Voice Helpline (IVR) */}
             <Link
               href="/citizen/ivr"
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
@@ -243,7 +243,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
               }`}
             >
               <PhoneCall className="w-3.5 h-3.5 text-amber-300" />
-              <span>IVR Call Simulator</span>
+              <span>Voice Helpline (IVR)</span>
             </Link>
 
             {/* 5. Live Alerts & News Report */}
@@ -270,19 +270,6 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
             >
               <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
               <span>Relief Donations</span>
-            </Link>
-
-            {/* 7. Verify Certificate Tab */}
-            <Link
-              href="/verify"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors whitespace-nowrap border ${
-                pathname === '/verify' || pathname.startsWith('/verify/')
-                  ? 'bg-[#07284B] text-white font-bold border-[#FF9933]'
-                  : 'text-blue-100 hover:text-white hover:bg-white/10 border-blue-700/60'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Verify Certificate</span>
             </Link>
           </div>
         </nav>
@@ -423,7 +410,7 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
 
-                {/* IVR Call Simulator */}
+                {/* Voice Helpline (IVR) */}
                 <Link
                   href="/citizen/ivr"
                   onClick={() => setIsMenuOpen(false)}
@@ -434,8 +421,8 @@ export const GovHeader: React.FC<GovHeaderProps> = ({ onSkipToContent }) => {
                   <div className="flex items-center gap-2.5">
                     <PhoneCall className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
                     <div>
-                      <div>IVR Call Simulator / आईवीआर कॉल सिम्युलेटर</div>
-                      <div className="text-[11px] font-normal text-gray-500">Simulated 9-step non-smartphone intake flow</div>
+                      <div>Voice Helpline (IVR) / आईवीआर वॉइस हेल्पलाइन</div>
+                      <div className="text-[11px] font-normal text-gray-500">Toll-free 9-step non-smartphone intake flow</div>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />

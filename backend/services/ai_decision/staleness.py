@@ -79,6 +79,29 @@ async def fetch_live_resources(client: Any, resource_ids: List[str]) -> Dict[str
         return {}
 
 
+def _extract_plan_resources(ai_proposed_plan: Any) -> List[Dict[str, Any]]:
+    """
+    Extracts allocated resources from either the new nested schema:
+    ai_proposed_plan["recommendation"]["allocated_resources"]
+    or falls back to legacy flat schema:
+    ai_proposed_plan["recommended_resources"]
+    """
+    if not isinstance(ai_proposed_plan, dict):
+        return []
+
+    # Check new nested schema first
+    rec = ai_proposed_plan.get("recommendation")
+    if isinstance(rec, dict) and isinstance(rec.get("allocated_resources"), list):
+        return rec["allocated_resources"]
+
+    # Fallback to legacy schema
+    flat = ai_proposed_plan.get("recommended_resources")
+    if isinstance(flat, list):
+        return flat
+
+    return []
+
+
 def evaluate_diff(
     snapshot_row: Dict[str, Any],
     live_incident: Dict[str, Any],
@@ -120,9 +143,7 @@ def evaluate_diff(
             )
 
     # 2. Resource Availability and Stock Level Check
-    recommended_resources = []
-    if isinstance(ai_proposed_plan, dict):
-        recommended_resources = ai_proposed_plan.get("recommended_resources") or []
+    resources = _extract_plan_resources(ai_proposed_plan)
 
     # Map snapshot resources for comparison
     snap_resources_list = snapshot_data.get("resources") or snapshot_data.get("available_resources") or []
@@ -133,12 +154,12 @@ def evaluate_diff(
 
     # Aggregate requested quantities per resource_id
     requested_quantities: Dict[str, int] = {}
-    for item in recommended_resources:
+    for item in resources:
         if isinstance(item, dict):
-            res_id = str(item.get("resource_id", ""))
+            res_id = str(item.get("item_id") or item.get("resource_id") or "").strip()
             qty = item.get("quantity", 0)
-            if qty > 0:
-                requested_quantities[res_id] = requested_quantities.get(res_id, 0) + qty
+            if res_id and isinstance(qty, (int, float)) and qty > 0:
+                requested_quantities[res_id] = requested_quantities.get(res_id, 0) + int(qty)
 
     for res_id, req_qty in requested_quantities.items():
         if res_id not in live_resources:
@@ -212,11 +233,12 @@ async def check_staleness(snapshot_id: Union[str, UUID]) -> Dict[str, Any]:
 
     # Extract required resource IDs from plan
     resource_ids: List[str] = []
-    if isinstance(ai_proposed_plan, dict):
-        rec_list = ai_proposed_plan.get("recommended_resources") or []
-        for item in rec_list:
-            if isinstance(item, dict) and "resource_id" in item:
-                resource_ids.append(str(item["resource_id"]))
+    resources = _extract_plan_resources(ai_proposed_plan)
+    for item in resources:
+        if isinstance(item, dict):
+            res_id = str(item.get("item_id") or item.get("resource_id") or "").strip()
+            if res_id:
+                resource_ids.append(res_id)
 
     # 2. Fetch live data
     live_incident = await fetch_live_incident(client, incident_ref)
