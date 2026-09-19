@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useLedger } from '../context/LedgerContext';
 import { Heart, Radio, Send, CheckCircle2, ShieldCheck, AlertCircle, Package, Users, MapPin, ArrowRight, Sparkles, HandHeart, Award } from 'lucide-react';
 import { LOCATIONS } from '../mock/initialData';
@@ -123,6 +124,35 @@ export const PublicDonationPortal = () => {
         </div>
       </div>
 
+      {/* ACTION CARD: VERIFY DONATION CERTIFICATE */}
+      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 border border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 shrink-0">
+            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-white text-sm sm:text-base">
+                Verify a Donation Certificate
+              </h3>
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-400/30 uppercase tracking-wider">
+                Public Ledger
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 font-medium mt-0.5">
+              Validate cryptographic proof of donation allocation and tax receipts
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/verify"
+          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Verify Certificate Authenticity</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
 
       {/* MAIN TWO-COLUMN PORTAL SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -450,6 +480,19 @@ export const PublicDonationPortal = () => {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Quick Link to Verifier */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-medium">Have a certificate or Relief ID?</span>
+              <Link
+                href="/verify"
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline inline-flex items-center gap-1"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Verify Authenticity</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
           </div>
 

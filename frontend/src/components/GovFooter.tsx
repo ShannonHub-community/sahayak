@@ -51,6 +51,16 @@ export const GovFooter: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link href="/citizen/donation" className="hover:text-[#FF9933] transition-colors">
+                  Relief Donations &amp; Aid
+                </Link>
+              </li>
+              <li>
+                <Link href="/verify" className="hover:text-[#FF9933] transition-colors flex items-center gap-1 text-emerald-300">
+                  <span>Verify Donation Certificate</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/admin/twin" className="hover:text-[#FF9933] transition-colors flex items-center gap-1">
                   <span>EOC Command Center (Admin)</span>
                   <ExternalLink className="w-3 h-3 text-slate-400" />
