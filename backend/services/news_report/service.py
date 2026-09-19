@@ -33,8 +33,10 @@ from services.news_report.schemas import (
     TranslateRequest,
     TTSRequest,
 )
+from database.local_sqlite import get_db_session, NewsAlert, init_db
 
 PUBLIC_FEED_PAGE_SIZE = 20
+_state_column_ensured = True
 
 # In-memory storage for active alerts (no DB yet - resets on restart).
 INITIAL_ALERTS: List[Dict[str, Any]] = [
@@ -198,52 +200,74 @@ MOCK_TIMELINE_ENTRIES = [
 # Admin: create / list / get / update alerts
 # ---------------------------------------------------------------------
 def create_alert(req: AlertCreateRequest) -> dict:
-    new_id = max((a["alert_id"] for a in INITIAL_ALERTS), default=0) + 1
-    record = {
-        "alert_id": new_id,
-        "title": req.title.strip(),
-        "message": req.message.strip(),
-        "severity": req.severity,
-        "status": "active",
-        "created_by": req.created_by,
-        "state": req.state.strip() if getattr(req, "state", None) else None,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    INITIAL_ALERTS.insert(0, record)
-    return record
+    with get_db_session() as session:
+        now_str = datetime.now(timezone.utc).isoformat()
+        alert = NewsAlert(
+            title=req.title.strip(),
+            message=req.message.strip(),
+            severity=req.severity,
+            status="active",
+            created_by=req.created_by,
+            state=req.state.strip() if getattr(req, "state", None) else None,
+            timestamp=now_str,
+            updated_at=now_str,
+        )
+        session.add(alert)
+        session.commit()
+        session.refresh(alert)
+        record = alert.to_dict()
+        # Keep in-memory cache in sync if accessed elsewhere
+        INITIAL_ALERTS.insert(0, record)
+        return record
 
 
 def list_alerts(status: Optional[str] = None, page: int = 1, page_size: int = 20) -> list[dict]:
-    results = list(INITIAL_ALERTS)
-    if status:
-        results = [a for a in results if a.get("status") == status]
-    return results
+    with get_db_session() as session:
+        query = session.query(NewsAlert)
+        if status:
+            query = query.filter(NewsAlert.status == status)
+        query = query.order_by(NewsAlert.alert_id.desc())
+        if page and page_size:
+            query = query.offset((page - 1) * page_size).limit(page_size)
+        alerts = query.all()
+        return [a.to_dict() for a in alerts]
 
 
 def get_alert(alert_id: int) -> dict:
-    item = next((a for a in INITIAL_ALERTS if a.get("alert_id") == alert_id), None)
-    if not item:
-        raise HTTPException(status_code=404, detail="Alert not found")
-    return item
+    with get_db_session() as session:
+        alert = session.query(NewsAlert).filter(NewsAlert.alert_id == alert_id).first()
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        return alert.to_dict()
 
 
 def update_alert(alert_id: int, req: AlertUpdateRequest) -> dict:
-    item = next((a for a in INITIAL_ALERTS if a.get("alert_id") == alert_id), None)
-    if not item:
-        raise HTTPException(status_code=404, detail="Alert not found")
+    with get_db_session() as session:
+        alert = session.query(NewsAlert).filter(NewsAlert.alert_id == alert_id).first()
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alert not found")
 
-    fields = req.model_dump(exclude_none=True)
-    if not fields:
-        raise HTTPException(status_code=422, detail="No fields to update")
+        fields = req.model_dump(exclude_none=True)
+        if not fields:
+            raise HTTPException(status_code=422, detail="No fields to update")
 
-    # Allow explicitly clearing state back to nationwide with "".
-    if "state" in fields and fields["state"] == "":
-        fields["state"] = None
+        # Allow explicitly clearing state back to nationwide with "".
+        if "state" in fields and fields["state"] == "":
+            fields["state"] = None
 
-    item.update(fields)
-    item["updated_at"] = datetime.now(timezone.utc).isoformat()
-    return item
+        for key, value in fields.items():
+            setattr(alert, key, value)
+
+        alert.updated_at = datetime.now(timezone.utc).isoformat()
+        session.commit()
+        session.refresh(alert)
+        record = alert.to_dict()
+        # Update in-memory item if present
+        for i, item in enumerate(INITIAL_ALERTS):
+            if item.get("alert_id") == alert_id:
+                INITIAL_ALERTS[i] = record
+                break
+        return record
 
 
 # ---------------------------------------------------------------------
@@ -258,17 +282,23 @@ def get_public_feed(page: int = 1, state: Optional[str] = None) -> dict:
     behaviour."""
     state = state.strip() if state else None
 
-    active_alerts = [a for a in INITIAL_ALERTS if a.get("status") == "active"]
-    if state:
-        active_alerts = [a for a in active_alerts if a.get("state") is None or a.get("state") == state]
+    with get_db_session() as session:
+        from sqlalchemy import or_
+        query = session.query(NewsAlert).filter(NewsAlert.status == "active")
+        if state:
+            query = query.filter(or_(NewsAlert.state.is_(None), NewsAlert.state == state))
 
-    return {
-        "page": page,
-        "page_size": PUBLIC_FEED_PAGE_SIZE,
-        "count": len(active_alerts),
-        "state_filter": state,
-        "alerts": active_alerts,
-    }
+        query = query.order_by(NewsAlert.alert_id.desc())
+        alerts = query.all()
+        active_alerts = [a.to_dict() for a in alerts]
+
+        return {
+            "page": page,
+            "page_size": PUBLIC_FEED_PAGE_SIZE,
+            "count": len(active_alerts),
+            "state_filter": state,
+            "alerts": active_alerts,
+        }
 
 
 # ---------------------------------------------------------------------

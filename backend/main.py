@@ -32,11 +32,17 @@ from services.twin_aggregator.router import router as twin_aggregator_router
 from services.ai_decision.router import router as ai_decision_router
 
 
+from database.local_sqlite import init_db
+
 app = FastAPI(
     title="Sahayak Disaster Management API",
     description="Unified API Gateway and micro-service mesh for Sahayak Disaster Management Ecosystem",
     version="1.0.0",
 )
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
 
 allowed_origin_regex = os.getenv(
     "ALLOWED_ORIGIN_REGEX",

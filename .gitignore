@@ -65,5 +65,11 @@ temp/
 # Secrets / certificates
 # ------------------------------
 *.pem
-*.key
 backend/.env
+
+# ------------------------------
+# Databases
+# ------------------------------
+*.db
+*.sqlite3
+backend/sahayak_local.db

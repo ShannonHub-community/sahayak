@@ -1,4 +1,5 @@
-from typing import List, Dict, Optional
+import collections.abc
+from typing import List, Dict, Optional, MutableMapping
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 from fastapi import WebSocket, HTTPException
@@ -8,6 +9,13 @@ from .schemas import (
     InquiryStatus, InquiryCreateRequest, InquiryAnswerRequest,
     WebSocketEvent, RevertOrderRequest
 )
+from database.local_sqlite import (
+    get_db_session,
+    AuditRecord,
+    InquiryRecord,
+    init_db,
+)
+
 
 class ConnectionManager:
     def __init__(self):
@@ -33,90 +41,166 @@ class ConnectionManager:
         for client in disconnected_clients:
             self.disconnect(client)
 
+
 manager = ConnectionManager()
 
-# In-memory storage with pre-seeded sample data
-tickets_db: Dict[UUID, Ticket] = {}
-inquiries_db: Dict[UUID, TicketInquiry] = {}
+
+# ---------------------------------------------------------------------------
+# SQLite-Backed Dictionary Proxies (maintains full backward compatibility)
+# ---------------------------------------------------------------------------
+class TicketsDBProxy(collections.abc.MutableMapping):
+    def __getitem__(self, key: UUID) -> Ticket:
+        with get_db_session() as session:
+            row = session.query(AuditRecord).filter(AuditRecord.id == str(key)).first()
+            if not row:
+                raise KeyError(key)
+            return row.to_schema()
+
+    def __setitem__(self, key: UUID, value: Ticket):
+        with get_db_session() as session:
+            status_val = value.status.value if hasattr(value.status, "value") else str(value.status)
+            source_val = value.source.value if hasattr(value.source, "value") else str(value.source)
+            row = session.query(AuditRecord).filter(AuditRecord.id == str(key)).first()
+            if not row:
+                row = AuditRecord(
+                    id=str(key),
+                    order_name=value.order_name,
+                    type=value.type,
+                    department=value.department,
+                    status=status_val,
+                    issued_by=value.issued_by,
+                    executed_by=value.executed_by,
+                    source=source_val,
+                    revert_reason=value.revert_reason,
+                    created_at=value.created_at,
+                    updated_at=value.updated_at,
+                )
+                session.add(row)
+            else:
+                row.order_name = value.order_name
+                row.type = value.type
+                row.department = value.department
+                row.status = status_val
+                row.issued_by = value.issued_by
+                row.executed_by = value.executed_by
+                row.source = source_val
+                row.revert_reason = value.revert_reason
+                row.created_at = value.created_at
+                row.updated_at = value.updated_at
+            session.commit()
+
+    def __delitem__(self, key: UUID):
+        with get_db_session() as session:
+            deleted = session.query(AuditRecord).filter(AuditRecord.id == str(key)).delete()
+            session.commit()
+            if not deleted:
+                raise KeyError(key)
+
+    def __iter__(self):
+        with get_db_session() as session:
+            ids = [UUID(r.id) for r in session.query(AuditRecord.id).all()]
+            return iter(ids)
+
+    def __len__(self):
+        with get_db_session() as session:
+            return session.query(AuditRecord).count()
+
+    def clear(self):
+        with get_db_session() as session:
+            session.query(AuditRecord).delete()
+            session.commit()
+
+    def get(self, key: UUID, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def values(self):
+        with get_db_session() as session:
+            return [r.to_schema() for r in session.query(AuditRecord).all()]
+
+
+class InquiriesDBProxy(collections.abc.MutableMapping):
+    def __getitem__(self, key: UUID) -> TicketInquiry:
+        with get_db_session() as session:
+            row = session.query(InquiryRecord).filter(InquiryRecord.id == str(key)).first()
+            if not row:
+                raise KeyError(key)
+            return row.to_schema()
+
+    def __setitem__(self, key: UUID, value: TicketInquiry):
+        with get_db_session() as session:
+            status_val = value.status.value if hasattr(value.status, "value") else str(value.status)
+            row = session.query(InquiryRecord).filter(InquiryRecord.id == str(key)).first()
+            if not row:
+                row = InquiryRecord(
+                    id=str(key),
+                    ticket_id=str(value.ticket_id),
+                    question=value.question,
+                    response=value.response,
+                    asked_by=value.asked_by,
+                    status=status_val,
+                    created_at=value.created_at,
+                    answered_at=value.answered_at,
+                )
+                session.add(row)
+            else:
+                row.ticket_id = str(value.ticket_id)
+                row.question = value.question
+                row.response = value.response
+                row.asked_by = value.asked_by
+                row.status = status_val
+                row.created_at = value.created_at
+                row.answered_at = value.answered_at
+            session.commit()
+
+    def __delitem__(self, key: UUID):
+        with get_db_session() as session:
+            deleted = session.query(InquiryRecord).filter(InquiryRecord.id == str(key)).delete()
+            session.commit()
+            if not deleted:
+                raise KeyError(key)
+
+    def __iter__(self):
+        with get_db_session() as session:
+            ids = [UUID(r.id) for r in session.query(InquiryRecord.id).all()]
+            return iter(ids)
+
+    def __len__(self):
+        with get_db_session() as session:
+            return session.query(InquiryRecord).count()
+
+    def clear(self):
+        with get_db_session() as session:
+            session.query(InquiryRecord).delete()
+            session.commit()
+
+    def get(self, key: UUID, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def values(self):
+        with get_db_session() as session:
+            return [r.to_schema() for r in session.query(InquiryRecord).all()]
+
+
+tickets_db: MutableMapping[UUID, Ticket] = TicketsDBProxy()
+inquiries_db: MutableMapping[UUID, TicketInquiry] = InquiriesDBProxy()
+
+
+_has_seeded = False
 
 
 def _seed_initial_tickets():
-    if tickets_db:
+    """Ensures database tables are created and baseline records exist."""
+    global _has_seeded
+    if _has_seeded or len(tickets_db) > 0:
         return
-
-    now = datetime.now(timezone.utc)
-
-    t1_id = UUID("11111111-1111-1111-1111-111111111111")
-    t1 = Ticket(
-        id=t1_id,
-        order_name="NDRF Swift Water Rescue Team Deployment - Roha Sector 4",
-        type="dispatch",
-        department="Disaster Response / NDRF Unit 5",
-        status=TicketStatus.in_progress,
-        issued_by="EOC Incident Commander (Raigad Grid)",
-        executed_by="Inspector Rajesh Shinde",
-        source=TicketSource.workforce,
-        created_at=now - timedelta(minutes=24),
-        updated_at=now - timedelta(minutes=15),
-    )
-    tickets_db[t1_id] = t1
-
-    inq1_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
-    inq1 = TicketInquiry(
-        id=inq1_id,
-        ticket_id=t1_id,
-        question="Have all 6 inflatable rescue boats cleared the railway bridge choke point?",
-        asked_by="Logistics Coordinator",
-        response="Yes, 4 boats operational at Sector 4, 2 staged at Zilla Parishad school.",
-        status=InquiryStatus.answered,
-        created_at=now - timedelta(minutes=18),
-        answered_at=now - timedelta(minutes=12),
-    )
-    inquiries_db[inq1_id] = inq1
-
-    t2_id = UUID("22222222-2222-2222-2222-222222222222")
-    t2 = Ticket(
-        id=t2_id,
-        order_name="Emergency Insulin & Dialysis Supply Induction - Panvel Camp",
-        type="procurement",
-        department="Public Health / Civil Hospital",
-        status=TicketStatus.given,
-        issued_by="Chief Medical Officer",
-        executed_by="Dr. Suresh Patil (IMA)",
-        source=TicketSource.workforce,
-        created_at=now - timedelta(minutes=45),
-        updated_at=now - timedelta(minutes=30),
-    )
-    tickets_db[t2_id] = t2
-
-    t3_id = UUID("33333333-3333-3333-3333-333333333333")
-    t3 = Ticket(
-        id=t3_id,
-        order_name="Secondary Flood Gate Discharge Notification - Morbe Dam",
-        type="advisory",
-        department="Central Water Commission & Irrigation Dept",
-        status=TicketStatus.given,
-        issued_by="Dam Safety Chief Engineer",
-        executed_by="Flood Warning Cell",
-        source=TicketSource.twin_aggregator,
-        created_at=now - timedelta(minutes=10),
-        updated_at=now - timedelta(minutes=8),
-    )
-    tickets_db[t3_id] = t3
-
-    inq3_id = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
-    inq3 = TicketInquiry(
-        id=inq3_id,
-        ticket_id=t3_id,
-        question="Confirm siren activation in down-river villages prior to 5,000 cusec release?",
-        asked_by="State Disaster Management Authority",
-        status=InquiryStatus.awaiting_response,
-        created_at=now - timedelta(minutes=5),
-    )
-    inquiries_db[inq3_id] = inq3
-
-
-_seed_initial_tickets()
+    init_db()
+    _has_seeded = True
 
 
 class TicketService:
@@ -125,7 +209,24 @@ class TicketService:
     @staticmethod
     async def ingest_event(request: TicketCreateRequest) -> Ticket:
         ticket = Ticket(**request.model_dump())
-        tickets_db[ticket.id] = ticket
+        with get_db_session() as session:
+            status_val = ticket.status.value if hasattr(ticket.status, "value") else str(ticket.status)
+            source_val = ticket.source.value if hasattr(ticket.source, "value") else str(ticket.source)
+            record = AuditRecord(
+                id=str(ticket.id),
+                order_name=ticket.order_name,
+                type=ticket.type,
+                department=ticket.department,
+                status=status_val,
+                issued_by=ticket.issued_by,
+                executed_by=ticket.executed_by,
+                source=source_val,
+                revert_reason=ticket.revert_reason,
+                created_at=ticket.created_at,
+                updated_at=ticket.updated_at,
+            )
+            session.add(record)
+            session.commit()
 
         await manager.broadcast(
             "TICKET_CREATED",
@@ -142,48 +243,61 @@ class TicketService:
         end_time: Optional[datetime] = None
     ) -> List[Ticket]:
         _seed_initial_tickets()
-        result = list(tickets_db.values())
+        with get_db_session() as session:
+            query = session.query(AuditRecord)
 
-        if department:
-            result = [t for t in result if t.department == department]
-        if ticket_type:
-            result = [t for t in result if t.type == ticket_type]
-        if status:
-            result = [t for t in result if t.status == status]
-        if start_time:
-            result = [t for t in result if t.created_at >= start_time]
-        if end_time:
-            result = [t for t in result if t.created_at <= end_time]
+            if department:
+                query = query.filter(AuditRecord.department == department)
+            if ticket_type:
+                query = query.filter(AuditRecord.type == ticket_type)
+            if status:
+                status_str = status.value if hasattr(status, "value") else str(status)
+                query = query.filter(AuditRecord.status == status_str)
+            if start_time:
+                query = query.filter(AuditRecord.created_at >= start_time)
+            if end_time:
+                query = query.filter(AuditRecord.created_at <= end_time)
 
-        # Return latest first
-        return sorted(result, key=lambda x: x.created_at, reverse=True)
+            # Return latest first
+            query = query.order_by(AuditRecord.created_at.desc())
+            records = query.all()
+            return [r.to_schema() for r in records]
 
     @staticmethod
     def get_ticket(ticket_id: UUID) -> Optional[Ticket]:
         _seed_initial_tickets()
-        return tickets_db.get(ticket_id)
+        with get_db_session() as session:
+            record = session.query(AuditRecord).filter(AuditRecord.id == str(ticket_id)).first()
+            return record.to_schema() if record else None
     
     @staticmethod
     def get_ticket_inquiries(ticket_id: UUID) -> List[TicketInquiry]:
         _seed_initial_tickets()
-        return [i for i in inquiries_db.values() if i.ticket_id == ticket_id]
+        with get_db_session() as session:
+            records = session.query(InquiryRecord).filter(InquiryRecord.ticket_id == str(ticket_id)).all()
+            return [r.to_schema() for r in records]
 
     @staticmethod
     async def revert_order(ticket_id: UUID, request: RevertOrderRequest) -> Ticket:
         _seed_initial_tickets()
-        ticket = tickets_db.get(ticket_id)
-        if not ticket:
-            raise HTTPException(status_code=404, detail="Ticket not found")
+        with get_db_session() as session:
+            record = session.query(AuditRecord).filter(AuditRecord.id == str(ticket_id)).first()
+            if not record:
+                raise HTTPException(status_code=404, detail="Ticket not found")
 
-        if ticket.status not in [TicketStatus.given, TicketStatus.in_progress]:
-            raise HTTPException(
-                status_code=400, 
-                detail="Only orders with status 'given' or 'in_progress' can be reverted"
-            )
+            if record.status not in [TicketStatus.given.value, TicketStatus.in_progress.value, "given", "in_progress"]:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Only orders with status 'given' or 'in_progress' can be reverted"
+                )
 
-        ticket.status = TicketStatus.reverted
-        ticket.revert_reason = request.revert_reason
-        ticket.updated_at = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
+            record.status = TicketStatus.reverted.value
+            record.revert_reason = request.revert_reason
+            record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            ticket = record.to_schema()
 
         # Broadcast Stop Signal
         stop_signal = {
@@ -203,17 +317,27 @@ class TicketService:
     @staticmethod
     async def submit_inquiry(ticket_id: UUID, request: InquiryCreateRequest) -> TicketInquiry:
         _seed_initial_tickets()
-        ticket = tickets_db.get(ticket_id)
-        if not ticket:
-            raise HTTPException(status_code=404, detail="Ticket not found")
+        with get_db_session() as session:
+            ticket_record = session.query(AuditRecord).filter(AuditRecord.id == str(ticket_id)).first()
+            if not ticket_record:
+                raise HTTPException(status_code=404, detail="Ticket not found")
 
-        inquiry = TicketInquiry(
-            ticket_id=ticket_id,
-            question=request.question,
-            asked_by=request.asked_by,
-            status=InquiryStatus.awaiting_response
-        )
-        inquiries_db[inquiry.id] = inquiry
+            inquiry = TicketInquiry(
+                ticket_id=ticket_id,
+                question=request.question,
+                asked_by=request.asked_by,
+                status=InquiryStatus.awaiting_response
+            )
+            record = InquiryRecord(
+                id=str(inquiry.id),
+                ticket_id=str(ticket_id),
+                question=inquiry.question,
+                asked_by=inquiry.asked_by,
+                status=inquiry.status.value,
+                created_at=inquiry.created_at,
+            )
+            session.add(record)
+            session.commit()
 
         await manager.broadcast("INQUIRY_UPDATED", inquiry.model_dump(mode='json'))
         
@@ -225,17 +349,25 @@ class TicketService:
     @staticmethod
     async def answer_inquiry(ticket_id: UUID, inquiry_id: UUID, request: InquiryAnswerRequest) -> TicketInquiry:
         _seed_initial_tickets()
-        ticket = tickets_db.get(ticket_id)
-        if not ticket:
-            raise HTTPException(status_code=404, detail="Ticket not found")
-        
-        inquiry = inquiries_db.get(inquiry_id)
-        if not inquiry or inquiry.ticket_id != ticket_id:
-            raise HTTPException(status_code=404, detail="Inquiry not found")
+        with get_db_session() as session:
+            ticket_record = session.query(AuditRecord).filter(AuditRecord.id == str(ticket_id)).first()
+            if not ticket_record:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+            
+            record = session.query(InquiryRecord).filter(
+                InquiryRecord.id == str(inquiry_id),
+                InquiryRecord.ticket_id == str(ticket_id)
+            ).first()
+            if not record:
+                raise HTTPException(status_code=404, detail="Inquiry not found")
 
-        inquiry.response = request.response
-        inquiry.status = InquiryStatus.answered
-        inquiry.answered_at = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
+            record.response = request.response
+            record.status = InquiryStatus.answered.value
+            record.answered_at = now
+            session.commit()
+            session.refresh(record)
+            inquiry = record.to_schema()
 
         await manager.broadcast("INQUIRY_UPDATED", inquiry.model_dump(mode='json'))
         
@@ -247,23 +379,39 @@ class TicketService:
     @staticmethod
     def get_pending_badge_count() -> int:
         _seed_initial_tickets()
-        count = sum(
-            1 for i in inquiries_db.values() 
-            if i.status in [InquiryStatus.awaiting_response, InquiryStatus.overdue]
-        )
-        return count
+        with get_db_session() as session:
+            count = session.query(InquiryRecord).filter(
+                InquiryRecord.status.in_([InquiryStatus.awaiting_response.value, InquiryStatus.overdue.value, "awaiting_response", "overdue"])
+            ).count()
+            return count
 
     @staticmethod
     async def check_overdue_inquiries():
         """Background task to transition awaiting_response inquiries to overdue"""
         changed = False
         current_time = datetime.now(timezone.utc)
-        for inquiry in inquiries_db.values():
-            if inquiry.status == InquiryStatus.awaiting_response:
-                if current_time - inquiry.created_at > TicketService.TURNAROUND_WINDOW:
-                    inquiry.status = InquiryStatus.overdue
+        updated_inquiries = []
+
+        with get_db_session() as session:
+            records = session.query(InquiryRecord).filter(
+                InquiryRecord.status.in_([InquiryStatus.awaiting_response.value, "awaiting_response"])
+            ).all()
+
+            for r in records:
+                created_at = r.created_at
+                if created_at and created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+
+                if current_time - created_at > TicketService.TURNAROUND_WINDOW:
+                    r.status = InquiryStatus.overdue.value
                     changed = True
-                    await manager.broadcast("INQUIRY_UPDATED", inquiry.model_dump(mode='json'))
+                    updated_inquiries.append(r.to_schema())
+
+            if changed:
+                session.commit()
+
+        for inquiry in updated_inquiries:
+            await manager.broadcast("INQUIRY_UPDATED", inquiry.model_dump(mode='json'))
 
         if changed:
             badge_count = TicketService.get_pending_badge_count()
