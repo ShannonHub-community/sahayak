@@ -191,7 +191,7 @@ const playDtmfTone = (digit: string, isMuted: boolean) => {
 // CENTRALIZED MULTILINGUAL IVR PROMPTS
 // ============================================================================
 
-export const IVR_PROMPTS: Record<string, Record<'en' | 'hi' | 'mr' | 'kn', string>> = {
+const IVR_PROMPTS: Record<string, Record<'en' | 'hi' | 'mr' | 'kn', string>> = {
   STEP_1_WELCOME: {
     en: 'Welcome to 112. For Hindi press 1, For English press 2. Marathi sathi 3 dabava. Kannada kagi 4 otti. Press the star key (*) at any time to cancel.',
     hi: '112 आपातकालीन सेवा में आपका स्वागत है। हिंदी के लिए 1, English 2, मराठीसाठी 3, ಕನ್ನಡಕ್ಕಾಗಿ 4 दबाएं। रद्द करने के लिए * दबाएं।',
@@ -260,7 +260,7 @@ export const IVR_PROMPTS: Record<string, Record<'en' | 'hi' | 'mr' | 'kn', strin
   },
 };
 
-export const getIvrPrompt = (step: string, lang: string): string => {
+const getIvrPrompt = (step: string, lang: string): string => {
   const normalizedLang = (lang === 'hi' || lang === 'mr' || lang === 'kn') ? lang : 'en';
   const promptGroup = IVR_PROMPTS[step];
   if (!promptGroup) return '';

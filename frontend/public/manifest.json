@@ -1,0 +1,24 @@
+{
+  "name": "Sahayak | National Disaster Management Portal",
+  "short_name": "Sahayak",
+  "description": "National Disaster Management & Citizen Emergency Response Portal",
+  "start_url": "/citizen/sos",
+  "display": "standalone",
+  "background_color": "#07284B",
+  "theme_color": "#0B3D6E",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/globe.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
