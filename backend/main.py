@@ -31,6 +31,7 @@ from services.donation_service.router import router as donation_router
 from services.twin_aggregator.router import router as twin_aggregator_router
 from services.ai_decision.router import router as ai_decision_router
 from services.workforce_orchestrator.main import app as workforce_app
+from services.Pdna.backend.services.pdna_service.main import app as pdna_app
 
 
 from database.local_sqlite import init_db
@@ -93,6 +94,9 @@ app.include_router(public_feed_router)
 app.include_router(geo_router)
 app.include_router(donation_router)
 app.include_router(workforce_app.router, tags=["Workforce Orchestrator"])
+
+# Domain 4: Post-Disaster Needs Assessment (PDNA)
+app.include_router(pdna_app.router, tags=["Post-Disaster Needs Assessment (PDNA)"])
 
 
 # ---------------------------------------------------------------------------
