@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import DigitalTwinMap from '@/components/digital_twin/DigitalTwinMap';
 import CommandCenter from '@/components/ai_decision/CommandCenter';
-import { Radio, FileSpreadsheet } from 'lucide-react';
+import { Radio, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 
 export const metadata = {
   title: 'EOC Commander — Digital Twin | Sahayak',
@@ -30,6 +30,13 @@ export default function AdminTwinPage() {
         >
           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
           Audit Log
+        </Link>
+        <Link
+          href="/admin/damage-reports"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-colors"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          Damage Reports (PDNA)
         </Link>
       </div>
 

@@ -213,14 +213,50 @@ export function EntityMarker({ entity, isSelected }: EntityMarkerProps) {
     );
   }
 
-  // ── INFRASTRUCTURE DAMAGE ─────────────────────────────────────────────────
-  if (entity_type === "infrastructure" || entity_type === "infra_damage") {
+  // ── INFRASTRUCTURE DAMAGE (PDNA) ─────────────────────────────────────────
+  if (entity_type === "infra_damage" || entity_type === "infrastructure") {
+    // Resolve severity from entity attributes
+    const rawSev = (
+      entity.severity ||
+      entity.metadata?.severity ||
+      (status ?? "")
+    ).toLowerCase();
+
+    const isCritical =
+      rawSev.includes("critical") ||
+      sym.includes("critical") ||
+      (typeof severity_count === "number" && severity_count >= 3);
+
+    const isLow =
+      rawSev.includes("low") ||
+      sym.includes("low") ||
+      (typeof severity_count === "number" && severity_count === 1);
+
+    // Color code: Yellow for Low, Orange for Medium, Black for Critical
+    let badgeColor = "bg-orange-500 text-white border-white";
+    let iconColor = "text-white";
+    let severityLabel = "Medium";
+
+    if (isCritical) {
+      badgeColor = "bg-black text-amber-400 border-amber-400 shadow-md ring-2 ring-rose-600 animate-pulse";
+      iconColor = "text-amber-400";
+      severityLabel = "Critical";
+    } else if (isLow) {
+      badgeColor = "bg-yellow-400 text-yellow-950 border-white shadow-sm";
+      iconColor = "text-yellow-950";
+      severityLabel = "Low";
+    }
+
+    const displayName = entity.name || entity.metadata?.category || (symbol ? symbol.replace(/_/g, " ") : "Damage Hazard");
+
     return (
       <div
-        className="w-9 h-9 rounded bg-amber-500 border-2 border-white shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
-        title={`Infrastructure Damage — ${symbol} — ${status}`}
+        className={`w-9 h-9 rounded-md border-2 shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-110 ${badgeColor} ${
+          isSelected ? "ring-2 ring-blue-500 scale-115 shadow-xl" : ""
+        }`}
+        title={`Infrastructure Damage [${severityLabel}] — ${displayName} (${status || "Pending"})`}
       >
-        <AlertTriangle size={18} strokeWidth={2.5} className="text-white" />
+        <AlertTriangle size={19} strokeWidth={2.6} className={iconColor} />
       </div>
     );
   }

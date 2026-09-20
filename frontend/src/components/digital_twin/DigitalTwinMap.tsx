@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Map, { Marker, Popup } from "react-map-gl/maplibre";
 // Removed StyleSpecification import
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -13,6 +14,7 @@ import {
   Droplets,
   Waves,
   Gauge,
+  AlertTriangle,
 } from "lucide-react";
 import { useTwinStore } from "@/store/twinStore";
 import { useTwinWebsocket } from "./hooks/useTwinWebsocket";
@@ -71,6 +73,50 @@ export default function DigitalTwinMap() {
   // can read it reactively without prop drilling.
   const selectedEntity = useTwinStore((state) => state.selectedEntity);
   const setSelectedEntity = useTwinStore((state) => state.setSelectedEntity);
+
+  // Deep-link auto focus on incident from URL params (?focus=...&lat=...&lng=...)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const focusId = params.get("focus");
+      const latStr = params.get("lat");
+      const lngStr = params.get("lng");
+      if (focusId && (latStr || lngStr)) {
+        const lat = parseFloat(latStr || "0");
+        const lng = parseFloat(lngStr || "0");
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const existing = entities[focusId];
+          if (existing) {
+            setSelectedEntity(existing);
+          } else {
+            const focusedEntity: TwinMapState = {
+              id: focusId,
+              entity_type: "infra_damage",
+              symbol: "infra_damage",
+              name: `PDNA Report ${focusId}`,
+              severity_count: 3,
+              severity: "Critical",
+              status: "Assigned to Repair Crew",
+              location: { lat, lng },
+              last_updated: new Date().toISOString(),
+              metadata: {
+                photo_url: "/placeholder.jpg",
+                category: "Infrastructure Damage Assessment",
+                severity: "Critical",
+              },
+            };
+            setSelectedEntity(focusedEntity);
+            useTwinStore.setState((state) => ({
+              entities: {
+                ...state.entities,
+                [focusId]: focusedEntity,
+              },
+            }));
+          }
+        }
+      }
+    }
+  }, [entities, setSelectedEntity]);
 
   const getCoordinates = (entity: TwinMapState): { lat: number; lng: number } | null => {
     if (!entity || !entity.location) return null;
@@ -164,7 +210,114 @@ export default function DigitalTwinMap() {
             closeOnClick={false}
             className="z-50"
           >
-            {selectedEntity.entity_type === "flood_zone" || (selectedEntity.symbol && selectedEntity.symbol.toLowerCase().includes("flood")) ? (
+            {selectedEntity.entity_type === "infra_damage" || selectedEntity.entity_type === "infrastructure" ? (
+              /* ── PDNA Infrastructure Damage Details Popup ────────────────── */
+              <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-md p-3 w-64 font-sans pointer-events-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5 mb-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="p-1 rounded bg-amber-50 border border-amber-200 text-amber-700 shrink-0">
+                      <AlertTriangle size={14} className="text-amber-600" />
+                    </span>
+                    <div className="min-w-0">
+                      <h4 className="text-[9px] font-bold uppercase tracking-wider text-slate-500 truncate">
+                        PDNA Damage Assessment
+                      </h4>
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        {selectedEntity.metadata?.category || selectedEntity.name || selectedEntity.symbol.replace(/_/g, " ") || "Hazard Report"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEntity(null);
+                    }}
+                    className="p-0.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors shrink-0"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+
+                {/* Photo Thumbnail Placeholder */}
+                <div className="relative w-full h-24 bg-slate-100 rounded border border-slate-200 overflow-hidden mb-2 flex items-center justify-center">
+                  <img
+                    src={selectedEntity.metadata?.photo_url || "/placeholder.jpg"}
+                    alt="Damage assessment thumbnail"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      const parent = e.currentTarget.parentElement;
+                      if (parent && !parent.querySelector(".photo-fallback")) {
+                        const fb = document.createElement("div");
+                        fb.className = "photo-fallback flex flex-col items-center justify-center text-slate-400 p-2 text-center";
+                        fb.innerHTML = '<span class="text-xs font-bold text-slate-600">Damage Site Photo</span><span class="text-[9px] text-slate-400 mt-0.5">Field assessment capture</span>';
+                        parent.appendChild(fb);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Damage Category & Severity */}
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-slate-500 text-[10px]">Severity:</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                        (selectedEntity.metadata?.severity || selectedEntity.severity || "").toLowerCase() === "critical" ||
+                        (typeof selectedEntity.severity_count === "number" && selectedEntity.severity_count >= 3)
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                          : (selectedEntity.metadata?.severity || selectedEntity.severity || "").toLowerCase() === "low" ||
+                            selectedEntity.severity_count === 1
+                          ? "bg-yellow-50 text-yellow-800 border-yellow-200"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
+                      }`}
+                    >
+                      {selectedEntity.metadata?.severity || selectedEntity.severity || (selectedEntity.severity_count >= 3 ? "Critical" : selectedEntity.severity_count === 1 ? "Low" : "Medium")}
+                    </span>
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-semibold block mb-1">
+                      Status / स्थिति:
+                    </label>
+                    <select
+                      value={selectedEntity.status || "Pending"}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        const updated = { ...selectedEntity, status: newStatus };
+                        setSelectedEntity(updated);
+                        useTwinStore.setState((state) => ({
+                          entities: {
+                            ...state.entities,
+                            [updated.id]: updated,
+                          },
+                        }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0B3D6E]"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Assigned to Repair Crew">Assigned to Repair Crew</option>
+                      <option value="Resolved">Resolved</option>
+                    </select>
+                  </div>
+
+                  {/* Coordinates */}
+                  {selectedEntityCoords && (
+                    <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100 text-[9px] text-slate-500">
+                      <div className="flex items-center gap-0.5">
+                        <MapPin size={10} className="text-slate-400" />
+                        <span>GPS:</span>
+                      </div>
+                      <span className="font-mono text-slate-700">
+                        {selectedEntityCoords.lat.toFixed(4)}, {selectedEntityCoords.lng.toFixed(4)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : selectedEntity.entity_type === "flood_zone" || (selectedEntity.symbol && selectedEntity.symbol.toLowerCase().includes("flood")) ? (
               <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-md p-2.5 w-60 font-sans pointer-events-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5 mb-1.5">

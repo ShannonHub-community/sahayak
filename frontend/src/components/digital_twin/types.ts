@@ -13,6 +13,15 @@ export interface TwinMapState {
   river?: string;
   flowSpeed?: string;
   notes?: string;
+  category?: string;
+  severity?: string;
+  metadata?: {
+    photo_url?: string;
+    category?: string;
+    severity?: string;
+    landmark?: string;
+    [key: string]: any;
+  };
 }
 
 export interface TwinDiffPayload {
