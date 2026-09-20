@@ -6,7 +6,7 @@ to mock in tests and easy to swap out later if the vendor changes.
 
 Configuration (env vars):
     CLOUD_TTS_API_KEY     - required to actually call the cloud TTS API. If unset,
-                             every call raises CloudTTSAPIError immediately
+                             every call raises CloudCommsAPIError immediately
                              so callers can fall back gracefully instead
                              of hanging or crashing.
     SARVAM_API_BASE_URL   - defaults to https://api.sarvam.ai
@@ -52,20 +52,21 @@ LANGUAGE_CODE_MAP: dict[str, str] = {
 }
 
 
-class CloudTTSAPIError(RuntimeError):
+class CloudCommsAPIError(RuntimeError):
     """Raised for any failure talking to the cloud TTS/translation provider - missing key, network
     error, bad status code, or an unexpected response shape. Callers are
     expected to catch this and fall back to the original text/no-audio
     rather than let it bubble up as a raw exception."""
 
 
-SarvamAPIError = CloudTTSAPIError
+CloudTTSAPIError = CloudCommsAPIError
+SarvamAPIError = CloudCommsAPIError
 
 
 def _require_api_key() -> str:
     key = os.environ.get("CLOUD_TTS_API_KEY") or os.environ.get("SARVAM_API_KEY") or CLOUD_TTS_API_KEY
     if not key:
-        raise CloudTTSAPIError("CLOUD_TTS_API_KEY is not configured on the server")
+        raise CloudCommsAPIError("CLOUD_TTS_API_KEY is not configured on the server")
     return key
 
 
@@ -99,16 +100,16 @@ def translate_text(text: str, target_language_code: str, source_language_code: s
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise CloudTTSAPIError(f"Sarvam translate request failed: {exc}") from exc
+        raise CloudCommsAPIError(f"Sarvam translate request failed: {exc}") from exc
 
     try:
         data = response.json()
     except ValueError as exc:
-        raise CloudTTSAPIError("Sarvam translate returned a non-JSON response") from exc
+        raise CloudCommsAPIError("Sarvam translate returned a non-JSON response") from exc
 
     translated = data.get("translated_text")
     if not translated:
-        raise CloudTTSAPIError("Sarvam translate response was missing 'translated_text'")
+        raise CloudCommsAPIError("Sarvam translate response was missing 'translated_text'")
     return translated
 
 
@@ -123,7 +124,7 @@ def synthesize_speech(text: str, target_language_code: str) -> bytes:
     pitch/loudness/enable_preprocessing knobs v1 exposed (preprocessing
     is automatic on v3), so those are not sent."""
     if not text or not text.strip():
-        raise CloudTTSAPIError("Cannot synthesize speech for empty text")
+        raise CloudCommsAPIError("Cannot synthesize speech for empty text")
 
     payload = {
         "text": text,
@@ -143,18 +144,18 @@ def synthesize_speech(text: str, target_language_code: str) -> bytes:
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise CloudTTSAPIError(f"Sarvam text-to-speech request failed: {exc}") from exc
+        raise CloudCommsAPIError(f"Sarvam text-to-speech request failed: {exc}") from exc
 
     try:
         data = response.json()
     except ValueError as exc:
-        raise CloudTTSAPIError("Sarvam text-to-speech returned a non-JSON response") from exc
+        raise CloudCommsAPIError("Sarvam text-to-speech returned a non-JSON response") from exc
 
     audios = data.get("audios")
     if not audios:
-        raise CloudTTSAPIError("Sarvam text-to-speech response was missing 'audios'")
+        raise CloudCommsAPIError("Sarvam text-to-speech response was missing 'audios'")
 
     try:
         return base64.b64decode(audios[0])
     except (ValueError, TypeError) as exc:
-        raise CloudTTSAPIError("Sarvam text-to-speech returned invalid base64 audio") from exc
+        raise CloudCommsAPIError("Sarvam text-to-speech returned invalid base64 audio") from exc

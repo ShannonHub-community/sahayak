@@ -320,7 +320,7 @@ def translate_alerts(req: TranslateRequest) -> dict:
         try:
             translated_title = cloud_tts_fallback.translate_text(item.title, target_code)
             translated_message = cloud_tts_fallback.translate_text(item.message, target_code)
-        except cloud_tts_fallback.CloudTTSAPIError:
+        except cloud_tts_fallback.CloudCommsAPIError:
             translated_title, translated_message = item.title, item.message
         results.append({"id": item.id, "title": translated_title, "message": translated_message})
 
@@ -338,7 +338,7 @@ def get_audio_for_alert(req: TTSRequest) -> bytes:
     target_code = cloud_tts_fallback.LANGUAGE_CODE_MAP.get(req.language, "en-IN")
     try:
         return cloud_tts_fallback.synthesize_speech(req.text, target_code)
-    except cloud_tts_fallback.CloudTTSAPIError as exc:
+    except cloud_tts_fallback.CloudCommsAPIError as exc:
         raise HTTPException(status_code=502, detail=f"Text-to-speech is temporarily unavailable: {exc}") from exc
 
 

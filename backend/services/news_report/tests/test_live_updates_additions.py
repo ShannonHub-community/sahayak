@@ -76,7 +76,7 @@ def test_translate_calls_sarvam_and_returns_translated_text(client, monkeypatch)
 
 def test_translate_falls_back_to_original_text_on_sarvam_failure(client, monkeypatch):
     def raising_translate_text(*args, **kwargs):
-        raise service.cloud_tts_fallback.CloudTTSAPIError("boom")
+        raise service.cloud_tts_fallback.CloudCommsAPIError("boom")
 
     monkeypatch.setattr(service.cloud_tts_fallback, "translate_text", raising_translate_text)
 
@@ -105,7 +105,7 @@ def test_tts_returns_audio_bytes_on_success(client, monkeypatch):
 
 def test_tts_returns_502_on_sarvam_failure(client, monkeypatch):
     def raising_synthesize(*args, **kwargs):
-        raise service.cloud_tts_fallback.CloudTTSAPIError("tts backend down")
+        raise service.cloud_tts_fallback.CloudCommsAPIError("tts backend down")
 
     monkeypatch.setattr(service.cloud_tts_fallback, "synthesize_speech", raising_synthesize)
 
