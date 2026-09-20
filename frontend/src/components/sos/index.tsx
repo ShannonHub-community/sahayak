@@ -8,7 +8,7 @@ import { GovFooter } from '@/components/GovFooter';
 import { SOSForm } from '@/components/SOSForm';
 import { CompassDisplay } from '@/components/CompassDisplay';
 import type { SOSResponse, SOSLocation } from '@/types/sos';
-import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight, HeartHandshake } from 'lucide-react';
+import { AlertOctagon, PhoneCall, ShieldAlert, Radio, ArrowRight, HeartHandshake, AlertTriangle } from 'lucide-react';
 
 function DonationPortalCard() {
   return (
@@ -113,6 +113,14 @@ export default function HomePage() {
                     Tap to transmit GPS location & citizen count
                   </span>
                 </button>
+              </div>
+
+              {/* Citizen PDNA Infrastructure Damage Report Button */}
+              <div className="mt-4">
+                <Link className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-sm p-4 font-bold uppercase transition-colors shadow-sm" href="/citizen/pdna">
+                  <AlertTriangle className="w-6 h-6"/>
+                  Report Infrastructure Damage
+                </Link>
               </div>
 
               {/* Public Relief & Donation Portal Card */}
