@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+pydantic>=2.6
+python-multipart>=0.0.9
+
+# Optional, only needed if SUPABASE_URL / SUPABASE_SERVICE_KEY are set
+# to use real Supabase Storage instead of local disk:
+# supabase>=2.4
