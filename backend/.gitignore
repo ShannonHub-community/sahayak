@@ -1,0 +1,7 @@
+*.sqlite
+*.sqlite3
+.env*
+!.env.example
+__pycache__/
+.venv/
+venv/

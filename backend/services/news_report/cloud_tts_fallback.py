@@ -5,8 +5,8 @@ Kept in its own module (rather than inline in service.py) so it's easy
 to mock in tests and easy to swap out later if the vendor changes.
 
 Configuration (env vars):
-    SARVAM_API_KEY        - required to actually call Sarvam. If unset,
-                             every call raises SarvamAPIError immediately
+    CLOUD_TTS_API_KEY     - required to actually call the cloud TTS API. If unset,
+                             every call raises CloudTTSAPIError immediately
                              so callers can fall back gracefully instead
                              of hanging or crashing.
     SARVAM_API_BASE_URL   - defaults to https://api.sarvam.ai
@@ -29,7 +29,8 @@ import os
 import httpx
 
 SARVAM_API_BASE_URL = os.environ.get("SARVAM_API_BASE_URL", "https://api.sarvam.ai").rstrip("/")
-SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY")
+CLOUD_TTS_API_KEY = os.environ.get("CLOUD_TTS_API_KEY") or os.environ.get("SARVAM_API_KEY")
+SARVAM_API_KEY = CLOUD_TTS_API_KEY
 DEFAULT_TIMEOUT = float(os.environ.get("SARVAM_TIMEOUT_SECONDS", "15"))
 DEFAULT_TTS_MODEL = os.environ.get("SARVAM_TTS_MODEL", "bulbul:v3")
 DEFAULT_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "anand")
@@ -62,9 +63,10 @@ SarvamAPIError = CloudTTSAPIError
 
 
 def _require_api_key() -> str:
-    if not SARVAM_API_KEY:
-        raise CloudTTSAPIError("SARVAM_API_KEY is not configured on the server")
-    return SARVAM_API_KEY
+    key = os.environ.get("CLOUD_TTS_API_KEY") or os.environ.get("SARVAM_API_KEY") or CLOUD_TTS_API_KEY
+    if not key:
+        raise CloudTTSAPIError("CLOUD_TTS_API_KEY is not configured on the server")
+    return key
 
 
 def _headers() -> dict[str, str]:
