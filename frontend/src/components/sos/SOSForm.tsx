@@ -31,7 +31,7 @@ const MiniMap = dynamic<MiniMapProps>(
 import type { SOSLocation, SOSPayload, SOSResponse, CitizenProfile } from '@/types/sos';
 import { getBrowserIdentifier, getBrowserSessionId } from '@/services/browserIdentifier';
 import { lookupCitizenProfile } from '@/services/autofill';
-import { getCachedGuide } from '@/services/offlineCache';
+import { getCachedGuide, saveHazards, getOfflineHazards } from '@/services/offlineCache';
 import type { FirstAidGuideContent } from '@/services/offlineCache';
 import { submitSOS } from '@/services/sos';
 
@@ -77,6 +77,9 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
   // First Aid Offline Guide State
   const [cachedGuide, setCachedGuide] = useState<FirstAidGuideContent | null>(null);
   const [showGuideNotice, setShowGuideNotice] = useState<boolean>(false);
+
+  // Active Hazard State (PDNA damage reports)
+  const [hazards, setHazards] = useState<Array<{ id: string; lat: number; lng: number; severity: string; category: string }>>([]);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -165,6 +168,41 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
       setShowGuideNotice(false);
     }
   }, [medicalEmergency]);
+
+  // 4. Fetch active PDNA reports on mount, cache locally, and handle offline network catch
+  useEffect(() => {
+    async function loadHazards() {
+      try {
+        const res = await fetch('/api/admin/pdna/reports');
+        if (!res.ok) {
+          throw new Error(`Failed to fetch hazards: ${res.status}`);
+        }
+        const data = await res.json();
+        saveHazards(data);
+        const formatted = (Array.isArray(data) ? data : []).map((item: any) => ({
+          id: String(item.id || item.tracking_id || Math.random().toString(36).substring(2, 9)),
+          lat: Number(item.lat ?? item.latitude ?? 0),
+          lng: Number(item.lng ?? item.longitude ?? 0),
+          severity: String(item.severity || 'medium'),
+          category: String(item.category || item.damage_category || 'Hazard'),
+        })).filter((h: any) => !isNaN(h.lat) && !isNaN(h.lng) && (h.lat !== 0 || h.lng !== 0));
+        setHazards(formatted);
+      } catch (err) {
+        console.warn('Network offline or hazards fetch failed, loading offline cache:', err);
+        const cached = getOfflineHazards();
+        const formatted = (Array.isArray(cached) ? cached : []).map((item: any) => ({
+          id: String(item.id || item.tracking_id || Math.random().toString(36).substring(2, 9)),
+          lat: Number(item.lat ?? item.latitude ?? 0),
+          lng: Number(item.lng ?? item.longitude ?? 0),
+          severity: String(item.severity || 'medium'),
+          category: String(item.category || item.damage_category || 'Hazard'),
+        })).filter((h: any) => !isNaN(h.lat) && !isNaN(h.lng) && (h.lat !== 0 || h.lng !== 0));
+        setHazards(formatted);
+      }
+    }
+
+    loadHazards();
+  }, []);
 
   // Handle Confirmed Profile Pre-fill
   const handleConfirmProfile = () => {
@@ -578,6 +616,7 @@ export const SOSForm: React.FC<SOSFormProps> = ({ onCancel, onSubmitSuccess }) =
           <MiniMap
             mode="pick"
             location={currentLocation}
+            hazards={hazards}
             onLocationChange={(loc: SOSLocation) => setCurrentLocation(loc)}
             onRefreshLocation={acquireGPS}
             isLoadingLocation={isAcquiringLocation}

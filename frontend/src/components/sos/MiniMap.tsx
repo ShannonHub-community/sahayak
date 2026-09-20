@@ -26,6 +26,7 @@ export interface MiniMapProps {
   locationError?: string | null;
   className?: string;
   label?: string;
+  hazards?: Array<{id: string, lat: number, lng: number, severity: string, category: string}>;
 }
 
 // OpenStreetMap Raster Style Specification (zero external API keys, 100% reliable)
@@ -128,14 +129,18 @@ export const MiniMap: React.FC<MiniMapProps> = ({
   locationError = null,
   className = '',
   label,
+  hazards = [],
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const citizenMarkerRef = useRef<MapLibreMarker | null>(null);
   const shelterMarkerRef = useRef<MapLibreMarker | null>(null);
+  const hazardMarkersRef = useRef<MapLibreMarker[]>([]);
   const maplibreglRef = useRef<any>(null);
   const latestLocationRef = useRef<SOSLocation | null>(location);
   latestLocationRef.current = location;
+  const latestHazardsRef = useRef<Array<{id: string; lat: number; lng: number; severity: string; category: string}>>(hazards);
+  latestHazardsRef.current = hazards;
 
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -262,6 +267,68 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     }
 
     shelterMarkerRef.current = marker;
+  };
+
+  // Helper: sync or create hazard warning markers
+  const syncHazardMarkers = (
+    mapInstance: MapLibreMap,
+    hazardList?: Array<{ id: string; lat: number; lng: number; severity: string; category: string }>
+  ) => {
+    // Clear existing hazard markers
+    hazardMarkersRef.current.forEach((m) => m.remove());
+    hazardMarkersRef.current = [];
+
+    const MarkerConstructor = maplibreglRef.current?.Marker || (window as any).maplibregl?.Marker;
+    const PopupConstructor = maplibreglRef.current?.Popup || (window as any).maplibregl?.Popup;
+    if (!MarkerConstructor || !hazardList || hazardList.length === 0) return;
+
+    hazardList.forEach((h) => {
+      const lat = Number(h.lat ?? (h as any).latitude);
+      const lng = Number(h.lng ?? (h as any).longitude);
+      if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+
+      const sev = String(h.severity || 'medium').toLowerCase();
+      const color = (sev === 'critical' || sev === 'high') ? '#DC2626' : (sev === 'medium') ? '#F59E0B' : '#EAB308';
+      const bgColorClass = (sev === 'critical' || sev === 'high') ? 'bg-red-600' : (sev === 'medium') ? 'bg-amber-500' : 'bg-yellow-500';
+
+      const hazardDiv = document.createElement('div');
+      hazardDiv.className = 'hazard-warning-marker cursor-pointer select-none';
+      hazardDiv.setAttribute('title', `${h.category || 'Hazard'} (${h.severity || 'Warning'})`);
+      hazardDiv.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+          <div class="${bgColorClass}" style="color: #ffffff; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; white-space: nowrap; border: 1px solid #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-bottom: 1px; text-transform: uppercase;">
+            ⚠️ ${h.category || 'HAZARD'}
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 10px solid ${color};"></div>
+        </div>
+      `;
+
+      const marker = new MarkerConstructor({ element: hazardDiv })
+        .setLngLat([lng, lat])
+        .addTo(mapInstance);
+
+      if (PopupConstructor) {
+        const popup = new PopupConstructor({ offset: 12 }).setHTML(`
+          <div style="font-family: sans-serif; padding: 4px; max-width: 190px;">
+            <div style="font-weight: bold; font-size: 11px; color: ${color}; text-transform: uppercase;">
+              ⚠️ Hazard Warning
+            </div>
+            <div style="font-size: 12px; font-weight: 700; color: #1F2937; margin-top: 2px;">
+              ${h.category || 'Hazard / Road Block'}
+            </div>
+            <div style="font-size: 10px; color: #4B5563; margin-top: 1px;">
+              Severity: <span style="font-weight: 600; color: ${color}; text-transform: capitalize;">${h.severity || 'Reported'}</span>
+            </div>
+            <div style="font-size: 9px; color: #6B7280; font-family: monospace; margin-top: 3px;">
+              ${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E
+            </div>
+          </div>
+        `);
+        marker.setPopup(popup);
+      }
+
+      hazardMarkersRef.current.push(marker);
+    });
   };
 
   // Helper: draw/update dashed route line between citizen and shelter
@@ -480,6 +547,38 @@ export const MiniMap: React.FC<MiniMapProps> = ({
 
           // Update markers and bounds when map canvas is ready
           updateMapBoundsAndMarkers(map, false);
+
+          // Render lightweight warning markers for active hazards
+          const activeHazards = latestHazardsRef.current || hazards || [];
+          if (activeHazards && activeHazards.length > 0) {
+            activeHazards.forEach((h) => {
+              const lat = Number(h.lat ?? (h as any).latitude);
+              const lng = Number(h.lng ?? (h as any).longitude);
+              if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+
+              const sev = String(h.severity || 'medium').toLowerCase();
+              const color = (sev === 'critical' || sev === 'high') ? '#DC2626' : (sev === 'medium') ? '#F59E0B' : '#EAB308';
+              const bgColorClass = (sev === 'critical' || sev === 'high') ? 'bg-red-600' : (sev === 'medium') ? 'bg-amber-500' : 'bg-yellow-500';
+
+              const hazardDiv = document.createElement('div');
+              hazardDiv.className = 'hazard-warning-marker cursor-pointer select-none';
+              hazardDiv.setAttribute('title', `${h.category || 'Hazard'} (${h.severity || 'Warning'})`);
+              hazardDiv.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+                  <div class="${bgColorClass}" style="color: #ffffff; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; white-space: nowrap; border: 1px solid #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-bottom: 1px; text-transform: uppercase;">
+                    ⚠️ ${h.category || 'HAZARD'}
+                  </div>
+                  <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 10px solid ${color};"></div>
+                </div>
+              `;
+
+              const marker = new maplibregl.Marker({ element: hazardDiv })
+                .setLngLat([lng, lat])
+                .addTo(map);
+
+              hazardMarkersRef.current.push(marker);
+            });
+          }
         });
 
         // Click handler for mode="pick" (manual tap-to-pin, disabled if read-only)
@@ -533,6 +632,10 @@ export const MiniMap: React.FC<MiniMapProps> = ({
         shelterMarkerRef.current.remove();
         shelterMarkerRef.current = null;
       }
+      if (hazardMarkersRef.current) {
+        hazardMarkersRef.current.forEach((marker) => marker.remove());
+        hazardMarkersRef.current = [];
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -546,6 +649,12 @@ export const MiniMap: React.FC<MiniMapProps> = ({
     if (!mapRef.current) return;
     updateMapBoundsAndMarkers(mapRef.current, mapLoaded);
   }, [location?.lat, location?.lng, location?.isFallback, shelterLocation?.lat, shelterLocation?.lng, mapLoaded, mode, isReadOnly]);
+
+  // Update hazard markers when hazards prop changes or map finishes loading
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    syncHazardMarkers(mapRef.current, hazards);
+  }, [hazards, mapLoaded]);
 
   // Update citizen marker draggability when mode or readOnly changes
   useEffect(() => {
@@ -680,6 +789,16 @@ export const MiniMap: React.FC<MiniMapProps> = ({
                       : 'GPS location unavailable. Tap below to acquire coordinates.'}
                   </div>
                 )}
+              </div>
+            )}
+
+            {hazards && hazards.length > 0 && (
+              <div className="mt-3 bg-amber-950/70 border border-amber-500/50 rounded p-2.5 text-xs text-amber-200 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="leading-snug">
+                  <span className="font-bold text-amber-300">Offline Hazard Warning ({hazards.length} cached): </span>
+                  Damage reports and road obstructions recorded in sector. Proceed with caution during transit.
+                </div>
               </div>
             )}
           </div>

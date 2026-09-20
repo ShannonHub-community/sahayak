@@ -138,3 +138,27 @@ export function clearOfflineGuides(): void {
     console.warn('Unable to clear offline guides:', err);
   }
 }
+
+const HAZARDS_CACHE_KEY = 'sahayak_offline_hazards';
+
+export function saveHazards(hazards: any[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(HAZARDS_CACHE_KEY, JSON.stringify(hazards || []));
+    window.dispatchEvent(new CustomEvent('sahayak-offline-hazards-updated'));
+  } catch (err) {
+    console.warn('Unable to cache offline hazards:', err);
+  }
+}
+
+export function getOfflineHazards(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(HAZARDS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}

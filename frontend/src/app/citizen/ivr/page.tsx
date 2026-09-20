@@ -1732,7 +1732,7 @@ export default function IvrSimulatorPage() {
                     </span>
                   </div>
                   <span className="font-mono text-[10px] text-emerald-700 font-bold">
-                    BEARING {backendResponse.nearest_shelter.bearing}°
+                    BEARING {typeof backendResponse.nearest_shelter.bearing === 'number' ? backendResponse.nearest_shelter.bearing.toFixed(2) : '0.00'}°
                   </span>
                 </div>
               )}

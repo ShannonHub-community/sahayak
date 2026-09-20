@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { NearestShelter, SOSLocation } from '@/types/sos';
 import type { MiniMapProps } from './MiniMap';
+import { getOfflineHazards } from '@/services/offlineCache';
 
 const MiniMap = dynamic<MiniMapProps>(
   () => import('./MiniMap').then((mod) => mod.MiniMap),
@@ -46,9 +47,26 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
   const [isLiveCompassActive, setIsLiveCompassActive] = useState<boolean>(false);
   const [orientationPermissionState, setOrientationPermissionState] = useState<'prompt' | 'granted' | 'denied' | 'unsupported'>('prompt');
+  const [hazards, setHazards] = useState<Array<{ id: string; lat: number; lng: number; severity: string; category: string }>>([]);
+
+  useEffect(() => {
+    const cached = getOfflineHazards();
+    if (cached && cached.length > 0) {
+      const formatted = cached.map((item: any) => ({
+        id: String(item.id || item.tracking_id || Math.random().toString(36).substring(2, 9)),
+        lat: Number(item.lat ?? item.latitude ?? 0),
+        lng: Number(item.lng ?? item.longitude ?? 0),
+        severity: String(item.severity || 'medium'),
+        category: String(item.category || item.damage_category || 'Hazard'),
+      })).filter((h: any) => !isNaN(h.lat) && !isNaN(h.lng) && (h.lat !== 0 || h.lng !== 0));
+      setHazards(formatted);
+    }
+  }, []);
 
   // Static calculated bearing from SOS dispatch
-  const staticBearing = ((shelter.bearing % 360) + 360) % 360;
+  const staticBearing = typeof shelter?.bearing === 'number' && !isNaN(shelter.bearing)
+    ? ((shelter.bearing % 360) + 360) % 360
+    : 0;
 
   // Relative needle angle: if live heading is active, calculate angle relative to device's current facing
   const activeNeedleRotation = deviceHeading !== null
@@ -200,7 +218,7 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Compass className="w-4 h-4 text-[#0B3D6E] flex-shrink-0" />
                   <span className="text-base sm:text-lg font-extrabold text-[#0B3D6E] font-mono">
-                    {shelter.cardinal} ({staticBearing}°)
+                    {shelter.cardinal} ({staticBearing !== undefined ? staticBearing.toFixed(2) : '0.00'}°)
                   </span>
                 </div>
               </div>
@@ -234,13 +252,13 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
 
             {/* Compass Heading Readout */}
             <div className="text-xs font-mono font-bold text-[#0B3D6E]">
-              Direction: {shelter.cardinal} ({staticBearing}°)
+              Direction: {shelter.cardinal} ({staticBearing !== undefined ? staticBearing.toFixed(2) : '0.00'}°)
             </div>
 
             {isLiveCompassActive ? (
               <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-1">
                 <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                <span>Live tracking (Device facing {deviceHeading}°N)</span>
+                <span>Live tracking (Device facing {typeof deviceHeading === 'number' ? deviceHeading.toFixed(1) : '0'}°N)</span>
               </div>
             ) : (
               <div className="space-y-1 mt-1.5">
@@ -265,6 +283,7 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
             mode="route"
             readOnly={true}
             location={effectiveCitizenLocation}
+            hazards={hazards}
             shelterLocation={{
               lat: targetLat,
               lng: targetLng,
@@ -287,7 +306,7 @@ export const CompassDisplay: React.FC<CompassDisplayProps> = ({
           <span>Disaster Movement Protocol / आपदा राहत निर्देश:</span>
         </div>
         <p className="pl-5 text-gray-800">
-          1. Proceed in the <strong>{shelter.cardinal} ({staticBearing}°)</strong> direction towards <strong>{shelter.name}</strong> ({shelter.distance}). Refer to the route line and pins on the map above.
+          1. Proceed in the <strong>{shelter.cardinal} ({staticBearing !== undefined ? staticBearing.toFixed(2) : '0.00'}°)</strong> direction towards <strong>{shelter.name}</strong> ({shelter.distance}). Refer to the route line and pins on the map above.
         </p>
         <p className="pl-5 text-gray-800">
           2. Avoid walking or driving through moving flood waters. Conserve phone battery.

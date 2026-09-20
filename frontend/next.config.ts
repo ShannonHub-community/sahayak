@@ -89,6 +89,14 @@ const nextConfig: NextConfig = {
         source: "/api/citizen/:path*",
         destination: `${backendUrl}/api/citizen/:path*`,
       },
+      {
+        source: "/api/pdna/:path*",
+        destination: `${backendUrl}/api/pdna/:path*`,
+      },
+      {
+        source: "/api/admin/pdna/:path*",
+        destination: `${backendUrl}/api/admin/pdna/:path*`,
+      },
     ];
   },
 };
