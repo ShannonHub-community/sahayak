@@ -61,7 +61,7 @@ def test_translate_calls_sarvam_and_returns_translated_text(client, monkeypatch)
     def fake_translate_text(text, target_language_code, source_language_code="en-IN"):
         return f"[{target_language_code}] {text}"
 
-    monkeypatch.setattr(sarvam_client, "translate_text", fake_translate_text)
+    monkeypatch.setattr(service.sarvam_client, "translate_text", fake_translate_text)
 
     resp = client.post(
         "/api/comms/translate",
@@ -76,9 +76,9 @@ def test_translate_calls_sarvam_and_returns_translated_text(client, monkeypatch)
 
 def test_translate_falls_back_to_original_text_on_sarvam_failure(client, monkeypatch):
     def raising_translate_text(*args, **kwargs):
-        raise sarvam_client.SarvamAPIError("boom")
+        raise service.sarvam_client.SarvamAPIError("boom")
 
-    monkeypatch.setattr(sarvam_client, "translate_text", raising_translate_text)
+    monkeypatch.setattr(service.sarvam_client, "translate_text", raising_translate_text)
 
     resp = client.post(
         "/api/comms/translate",
@@ -95,7 +95,7 @@ def test_translate_falls_back_to_original_text_on_sarvam_failure(client, monkeyp
 # 2. Text-to-speech
 # ---------------------------------------------------------------------
 def test_tts_returns_audio_bytes_on_success(client, monkeypatch):
-    monkeypatch.setattr(sarvam_client, "synthesize_speech", lambda text, lang: b"FAKE_AUDIO_BYTES")
+    monkeypatch.setattr(service.sarvam_client, "synthesize_speech", lambda text, lang: b"FAKE_AUDIO_BYTES")
 
     resp = client.post("/api/comms/tts", json={"text": "Flood warning", "language": "hi"})
     assert resp.status_code == 200
@@ -105,9 +105,9 @@ def test_tts_returns_audio_bytes_on_success(client, monkeypatch):
 
 def test_tts_returns_502_on_sarvam_failure(client, monkeypatch):
     def raising_synthesize(*args, **kwargs):
-        raise sarvam_client.SarvamAPIError("tts backend down")
+        raise service.sarvam_client.SarvamAPIError("tts backend down")
 
-    monkeypatch.setattr(sarvam_client, "synthesize_speech", raising_synthesize)
+    monkeypatch.setattr(service.sarvam_client, "synthesize_speech", raising_synthesize)
 
     resp = client.post("/api/comms/tts", json={"text": "Flood warning", "language": "hi"})
     assert resp.status_code == 502
@@ -121,7 +121,7 @@ def test_tts_defaults_to_english_when_no_language_selected(client, monkeypatch):
         seen["language"] = target_language_code
         return b"AUDIO"
 
-    monkeypatch.setattr(sarvam_client, "synthesize_speech", fake_synthesize)
+    monkeypatch.setattr(service.sarvam_client, "synthesize_speech", fake_synthesize)
 
     resp = client.post("/api/comms/tts", json={"text": "Flood warning"})
     assert resp.status_code == 200

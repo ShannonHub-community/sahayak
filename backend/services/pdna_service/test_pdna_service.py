@@ -20,7 +20,10 @@ os.environ["PDNA_LOCAL_STORAGE_ROOT"] = f"{_tmpdir}/damage-photos"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from backend.services.pdna_service.main import app  # noqa: E402
+try:
+    from services.pdna_service.main import app  # noqa: E402
+except ImportError:
+    from backend.services.pdna_service.main import app  # noqa: E402
 
 client = TestClient(app)
 

@@ -22,7 +22,7 @@ MAX_PHOTO_BYTES = 15 * 1024 * 1024  # 15 MB
 _LOCAL_STORAGE_ROOT = Path(
     os.environ.get(
         "PDNA_LOCAL_STORAGE_ROOT",
-        Path(__file__).resolve().parents[3] / "storage" / "damage-photos",
+        Path(__file__).resolve().parent / "storage" / "damage-photos",
     )
 )
 

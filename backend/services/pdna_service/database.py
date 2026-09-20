@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 DATABASE_URL = os.environ.get(
     "PDNA_DATABASE_URL",
-    "sqlite:///" + os.path.join(os.path.dirname(__file__), "..", "..", "..", "pdna.db"),
+    "sqlite:///" + os.path.join(os.path.dirname(__file__), "pdna.db"),
 )
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
