@@ -35,7 +35,7 @@ export interface TranslatedAlertsMap {
 
 /**
  * Service function to translate alerts into target language.
- * Calls backend endpoint POST /api/comms/translate (which wraps Sarvam API)
+ * Calls backend endpoint POST /api/comms/translate (which wraps Cloud Translation API)
  */
 export async function translateAlerts(
   alerts: Array<{ id: string | number; title: string; message: string;[key: string]: any }>,

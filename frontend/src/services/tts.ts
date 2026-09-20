@@ -5,7 +5,7 @@
  *    Ultra-fast, 100% client-side & offline when a matching voice is installed on device
  *    (e.g., English, Hindi on Windows/Chrome).
  *
- * 2. Backend Sarvam TTS Fallback (Second attempt):
+ * 2. Cloud TTS Fallback (Second attempt):
  *    Seamless fallback to POST /api/comms/tts when no local voice is installed for the
  *    requested Indic language (Marathi, Bengali, Gujarati, Kannada, Malayalam, Odia,
  *    Punjabi, Tamil, Telugu), playing audio via HTML5 <audio>.
@@ -228,7 +228,7 @@ export interface SpeechControl {
 }
 
 /**
- * Plays speech using backend Sarvam TTS endpoint (POST /api/comms/tts) via HTML5 Audio element.
+ * Plays speech using backend cloud TTS fallback endpoint (POST /api/comms/tts) via HTML5 Audio element.
  */
 async function playBackendTTS(
   text: string,
@@ -386,7 +386,7 @@ async function playBackendTTS(
  * Hybrid TTS Entrypoint:
  * 1. Attempts Native Web Speech API first (instant, offline).
  * 2. If no voice is installed for the requested language, seamlessly falls back to
- *    the backend Sarvam TTS endpoint (POST /api/comms/tts) played via HTML5 Audio.
+ *    the backend cloud TTS fallback endpoint (POST /api/comms/tts) played via HTML5 Audio.
  * 3. Only if both fail does it trigger onError.
  */
 export function getAudioForAlert(
@@ -472,7 +472,7 @@ export function getAudioForAlert(
     }
   }
 
-  // Attempt 2: Backend Sarvam TTS Fallback (POST /api/comms/tts -> HTML5 Audio)
+  // Attempt 2: Cloud TTS Fallback (POST /api/comms/tts -> HTML5 Audio)
   if (isAudioElementSupported()) {
     let returnedControl: SpeechControl = { stop: () => {} };
     playBackendTTS(text, language, callbacks).then((ctrl) => {

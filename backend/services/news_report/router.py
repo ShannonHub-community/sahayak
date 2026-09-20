@@ -27,8 +27,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, Response
 
-from services.news_report import service
-from services.news_report.schemas import (
+from . import service
+from .schemas import (
     AlertCreateRequest,
     AlertOut,
     AlertUpdateRequest,

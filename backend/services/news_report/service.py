@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
-from services.news_report import sarvam_client
+from . import cloud_tts_fallback
 from services.news_report.geo_lookup import lookup_state
 from services.news_report.schemas import (
     AlertCreateRequest,
@@ -313,14 +313,14 @@ def translate_alerts(req: TranslateRequest) -> dict:
     if req.language == "en":
         return {"items": [{"id": it.id, "title": it.title, "message": it.message} for it in req.items]}
 
-    target_code = sarvam_client.LANGUAGE_CODE_MAP[req.language]
+    target_code = cloud_tts_fallback.LANGUAGE_CODE_MAP[req.language]
 
     results = []
     for item in req.items:
         try:
-            translated_title = sarvam_client.translate_text(item.title, target_code)
-            translated_message = sarvam_client.translate_text(item.message, target_code)
-        except sarvam_client.SarvamAPIError:
+            translated_title = cloud_tts_fallback.translate_text(item.title, target_code)
+            translated_message = cloud_tts_fallback.translate_text(item.message, target_code)
+        except cloud_tts_fallback.CloudTTSAPIError:
             translated_title, translated_message = item.title, item.message
         results.append({"id": item.id, "title": translated_title, "message": translated_message})
 
@@ -331,14 +331,14 @@ def translate_alerts(req: TranslateRequest) -> dict:
 # Public: per-card text-to-speech (Prompt 6, item 2)
 # ---------------------------------------------------------------------
 def get_audio_for_alert(req: TTSRequest) -> bytes:
-    """Synthesize speech for one alert's text via Sarvam. Unlike
+    """Synthesize speech for one alert's text via cloud TTS fallback. Unlike
     translation, there's no sensible "fallback text" for audio, so a
     genuine failure here surfaces as a 502 and the frontend button shows
     its inline retry state, per the prompt."""
-    target_code = sarvam_client.LANGUAGE_CODE_MAP.get(req.language, "en-IN")
+    target_code = cloud_tts_fallback.LANGUAGE_CODE_MAP.get(req.language, "en-IN")
     try:
-        return sarvam_client.synthesize_speech(req.text, target_code)
-    except sarvam_client.SarvamAPIError as exc:
+        return cloud_tts_fallback.synthesize_speech(req.text, target_code)
+    except cloud_tts_fallback.CloudTTSAPIError as exc:
         raise HTTPException(status_code=502, detail=f"Text-to-speech is temporarily unavailable: {exc}") from exc
 
 

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (!backendRes.ok) {
       const errorText = await backendRes.text().catch(() => '');
       console.warn(
-        `[TTS Proxy] Backend returned status ${backendRes.status}:`,
+        `[Cloud TTS Fallback] Backend returned status ${backendRes.status}:`,
         errorText
       );
       return NextResponse.json(
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error('[TTS Proxy] Error contacting backend TTS:', err);
+    console.error('[Cloud TTS Fallback] Error contacting backend TTS:', err);
     return NextResponse.json(
       { 
         error: 'Text-to-speech backend is currently unreachable.',

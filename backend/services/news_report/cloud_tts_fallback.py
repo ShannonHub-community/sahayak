@@ -51,16 +51,19 @@ LANGUAGE_CODE_MAP: dict[str, str] = {
 }
 
 
-class SarvamAPIError(RuntimeError):
-    """Raised for any failure talking to Sarvam - missing key, network
+class CloudTTSAPIError(RuntimeError):
+    """Raised for any failure talking to the cloud TTS/translation provider - missing key, network
     error, bad status code, or an unexpected response shape. Callers are
     expected to catch this and fall back to the original text/no-audio
     rather than let it bubble up as a raw exception."""
 
 
+SarvamAPIError = CloudTTSAPIError
+
+
 def _require_api_key() -> str:
     if not SARVAM_API_KEY:
-        raise SarvamAPIError("SARVAM_API_KEY is not configured on the server")
+        raise CloudTTSAPIError("SARVAM_API_KEY is not configured on the server")
     return SARVAM_API_KEY
 
 
@@ -94,16 +97,16 @@ def translate_text(text: str, target_language_code: str, source_language_code: s
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise SarvamAPIError(f"Sarvam translate request failed: {exc}") from exc
+        raise CloudTTSAPIError(f"Sarvam translate request failed: {exc}") from exc
 
     try:
         data = response.json()
     except ValueError as exc:
-        raise SarvamAPIError("Sarvam translate returned a non-JSON response") from exc
+        raise CloudTTSAPIError("Sarvam translate returned a non-JSON response") from exc
 
     translated = data.get("translated_text")
     if not translated:
-        raise SarvamAPIError("Sarvam translate response was missing 'translated_text'")
+        raise CloudTTSAPIError("Sarvam translate response was missing 'translated_text'")
     return translated
 
 
@@ -118,7 +121,7 @@ def synthesize_speech(text: str, target_language_code: str) -> bytes:
     pitch/loudness/enable_preprocessing knobs v1 exposed (preprocessing
     is automatic on v3), so those are not sent."""
     if not text or not text.strip():
-        raise SarvamAPIError("Cannot synthesize speech for empty text")
+        raise CloudTTSAPIError("Cannot synthesize speech for empty text")
 
     payload = {
         "text": text,
@@ -138,18 +141,18 @@ def synthesize_speech(text: str, target_language_code: str) -> bytes:
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise SarvamAPIError(f"Sarvam text-to-speech request failed: {exc}") from exc
+        raise CloudTTSAPIError(f"Sarvam text-to-speech request failed: {exc}") from exc
 
     try:
         data = response.json()
     except ValueError as exc:
-        raise SarvamAPIError("Sarvam text-to-speech returned a non-JSON response") from exc
+        raise CloudTTSAPIError("Sarvam text-to-speech returned a non-JSON response") from exc
 
     audios = data.get("audios")
     if not audios:
-        raise SarvamAPIError("Sarvam text-to-speech response was missing 'audios'")
+        raise CloudTTSAPIError("Sarvam text-to-speech response was missing 'audios'")
 
     try:
         return base64.b64decode(audios[0])
     except (ValueError, TypeError) as exc:
-        raise SarvamAPIError("Sarvam text-to-speech returned invalid base64 audio") from exc
+        raise CloudTTSAPIError("Sarvam text-to-speech returned invalid base64 audio") from exc
