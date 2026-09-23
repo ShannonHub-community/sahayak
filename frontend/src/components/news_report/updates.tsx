@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { 
   Radio, 
@@ -47,7 +47,9 @@ export default function UpdatesPage() {
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
 
   // Translation States
-  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(() => {
+    return getSavedLanguage() || 'en';
+  });
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [translatedMap, setTranslatedMap] = useState<TranslatedAlertsMap>({});
 
@@ -63,14 +65,8 @@ export default function UpdatesPage() {
     selectedState
   );
 
-  // 1. Initialize saved language and auto-detect GPS state on mount
+  // 1. Auto-detect GPS state on mount
   useEffect(() => {
-    // Load persisted language
-    const savedLang = getSavedLanguage();
-    if (savedLang) {
-      setSelectedLanguage(savedLang);
-    }
-
     // Auto-detect GPS coordinates and resolve Indian State
     async function autoDetectLocation() {
       setIsDetectingLocation(true);
@@ -88,7 +84,7 @@ export default function UpdatesPage() {
         } else {
           setLocationNote('Showing nationwide feed — enable location to see alerts for your state.');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.warn('GPS state detection unavailable:', err);
         setLocationNote('Showing nationwide feed — enable location to see alerts for your state.');
       } finally {
@@ -130,60 +126,81 @@ export default function UpdatesPage() {
     console.log('[DEBUG Component State] Current selectedState in updates.tsx:', selectedState);
   }, [selectedState]);
 
-  // Keep ref to alerts so handleTranslation doesn't depend on unstable array references
+  // Keep ref to alerts so async translation always accesses latest data without depending on unstable array references
   const alertsRef = useRef(alerts);
   useEffect(() => {
     alertsRef.current = alerts;
   }, [alerts]);
 
-  // Stable primitive fingerprint of alerts based on IDs
-  const alertsFingerprint = alerts.map((a) => a.id).join(',');
+  // Stable primitive fingerprint of alerts based on IDs and titles
+  const alertsFingerprint = useMemo(
+    () => alerts.map((a) => `${a.id}:${a.title}`).join('|'),
+    [alerts]
+  );
 
-  // 2. Perform translation when language changes or alert IDs change
-  useEffect(() => {
-    let isCancelled = false;
+  // Track last completed or in-flight translation key (lang + fingerprint) to prevent redundant runs
+  const lastTranslatedKeyRef = useRef<string>('');
 
-    async function handleTranslation() {
-      if (selectedLanguage === 'en') {
-        setTranslatedMap((prev) => (Object.keys(prev).length === 0 ? prev : {}));
-        setIsTranslating(false);
-        return;
-      }
-
-      const currentAlerts = alertsRef.current;
-      if (!currentAlerts || currentAlerts.length === 0) {
-        return;
-      }
-
-      setIsTranslating(true);
-      try {
-        const result = await translateAlerts(currentAlerts, selectedLanguage);
-        if (!isCancelled) {
-          setTranslatedMap(result);
-        }
-      } catch (err) {
-        console.warn('Translation failed, falling back to original text:', err);
-        if (!isCancelled) {
-          setTranslatedMap({});
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsTranslating(false);
-        }
-      }
+  // 2. Wrapped translation handler with minimal, stable dependencies
+  const handleTranslation = useCallback(async (targetLanguage: LanguageCode, alertsToTranslate: PublicAlert[]) => {
+    if (targetLanguage === 'en') {
+      setTranslatedMap((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setIsTranslating(false);
+      lastTranslatedKeyRef.current = 'en:';
+      return;
     }
 
-    handleTranslation();
+    if (!alertsToTranslate || alertsToTranslate.length === 0) {
+      return;
+    }
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedLanguage, alertsFingerprint]);
+    const currentFingerprint = alertsToTranslate.map((a) => `${a.id}:${a.title}`).join('|');
+    const translationKey = `${targetLanguage}:${currentFingerprint}`;
+
+    if (lastTranslatedKeyRef.current === translationKey) {
+      return; // Already translated for this exact language and alerts dataset
+    }
+
+    lastTranslatedKeyRef.current = translationKey;
+    setIsTranslating(true);
+
+    try {
+      const result = await translateAlerts(alertsToTranslate, targetLanguage);
+      if (lastTranslatedKeyRef.current === translationKey) {
+        setTranslatedMap(result);
+      }
+    } catch (err) {
+      console.warn('Translation failed, falling back to original text:', err);
+      if (lastTranslatedKeyRef.current === translationKey) {
+        setTranslatedMap({});
+      }
+    } finally {
+      if (lastTranslatedKeyRef.current === translationKey) {
+        setIsTranslating(false);
+      }
+    }
+  }, []);
+
+  // 3. Trigger translation when language changes or alerts content changes (guarded by stable fingerprint)
+  useEffect(() => {
+    if (selectedLanguage === 'en' || !alertsFingerprint) {
+      return;
+    }
+
+    handleTranslation(selectedLanguage, alertsRef.current);
+  }, [selectedLanguage, alertsFingerprint, handleTranslation]);
 
   // Language selector change handler
   const handleLanguageChange = (code: LanguageCode) => {
     setSelectedLanguage(code);
     saveLanguage(code);
+    if (code === 'en') {
+      setTranslatedMap({});
+      setIsTranslating(false);
+      lastTranslatedKeyRef.current = 'en:';
+    } else {
+      handleTranslation(code, alertsRef.current);
+    }
   };
 
   // Manual & Pull-to-refresh handler

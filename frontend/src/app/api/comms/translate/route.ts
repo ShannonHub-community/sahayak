@@ -217,6 +217,48 @@ const ALERT_MESSAGE_TRANSLATIONS: Record<
   },
 };
 
+// Server-side in-memory translation cache to avoid redundant API queries
+const translationMemoryCache = new Map<string, string>();
+
+async function translateTextGoogle(text: string, targetLang: string): Promise<string> {
+  if (!text || !text.trim() || targetLang === 'en') {
+    return text;
+  }
+
+  const cacheKey = `${targetLang}:${text}`;
+  if (translationMemoryCache.has(cacheKey)) {
+    return translationMemoryCache.get(cacheKey)!;
+  }
+
+  const langCode = targetLang === 'or' ? 'or' : targetLang;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(langCode)}&dt=t&q=${encodeURIComponent(text)}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const translated = data[0]
+          .map((part: any) => (part && part[0]) || '')
+          .join('')
+          .trim();
+        if (translated) {
+          translationMemoryCache.set(cacheKey, translated);
+          return translated;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[TranslateRoute] Google translate error for "${text.slice(0, 30)}...":`, err.message);
+  }
+
+  return text;
+}
+
 export async function POST(request: Request) {
   try {
     const body: TranslationRequest = await request.json();
@@ -229,83 +271,113 @@ export async function POST(request: Request) {
       );
     }
 
-    // Proxy to external backend if NEXT_PUBLIC_API_URL or localhost:8000 is available
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const langCode = (language as LanguageCode) || 'en';
+
+    // If English, passthrough immediately
+    if (langCode === 'en') {
+      return NextResponse.json({ items });
+    }
+
+    // 1. Try external backend if NEXT_PUBLIC_API_URL or BACKEND_INTERNAL_URL is configured
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_INTERNAL_URL || '';
     if (apiBase) {
       try {
         const backendRes = await fetch(`${apiBase}/api/comms/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(6000),
         });
         if (backendRes.ok) {
           const backendData: TranslationResponse = await backendRes.json();
-          // If backend returned both title and message properly, return it
           if (Array.isArray(backendData.items) && backendData.items.length > 0) {
-            return NextResponse.json(backendData);
+            // Verify backend actually translated (not just echoed original English)
+            const isActuallyTranslated = backendData.items.some((bItem, idx) => {
+              const orig = items[idx];
+              return orig && (bItem.title !== orig.title || bItem.message !== orig.message);
+            });
+
+            if (isActuallyTranslated) {
+              return NextResponse.json(backendData);
+            }
           }
         }
       } catch (err) {
-        console.debug('Backend proxy translation unreachable:', err);
+        console.debug('[TranslateRoute] Backend proxy translation unreachable, using direct engine:', err);
       }
     }
 
-    // Localized translation pipeline
-    const langCode = (language as LanguageCode) || 'en';
-    const dict = SAMPLE_DICTIONARY[langCode] || SAMPLE_DICTIONARY.en;
-    const msgDict = ALERT_MESSAGE_TRANSLATIONS[langCode] || ALERT_MESSAGE_TRANSLATIONS.en;
+    // 2. Direct dynamic translation via Google Translate engine
+    const translatedItems = await Promise.all(
+      items.map(async (item) => {
+        try {
+          const [translatedTitle, translatedMessage] = await Promise.all([
+            translateTextGoogle(item.title, langCode),
+            translateTextGoogle(item.message, langCode),
+          ]);
 
-    const translatedItems = items.map((item) => {
-      if (langCode === 'en') {
-        return item;
-      }
+          // If dynamic translation succeeded and changed text, return it
+          if (translatedTitle !== item.title || translatedMessage !== item.message) {
+            return {
+              id: item.id,
+              title: translatedTitle,
+              message: translatedMessage,
+            };
+          }
+        } catch (e) {
+          console.warn('[TranslateRoute] Dynamic item translation failed, falling back:', e);
+        }
 
-      let translatedTitle = item.title;
-      let translatedMessage = item.message;
+        // 3. Fallback dictionary pattern for offline/network loss
+        const dict = SAMPLE_DICTIONARY[langCode] || SAMPLE_DICTIONARY.en;
+        const msgDict = ALERT_MESSAGE_TRANSLATIONS[langCode] || ALERT_MESSAGE_TRANSLATIONS.en;
+        const titleLower = item.title.toLowerCase();
+        const messageLower = item.message.toLowerCase();
 
-      const titleLower = item.title.toLowerCase();
-      const messageLower = item.message.toLowerCase();
+        let fallbackTitle = item.title;
+        let fallbackMessage = item.message;
 
-      if (titleLower.includes('dam') || titleLower.includes('discharge') || messageLower.includes('spillway')) {
-        const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
-        translatedTitle = `${dict.damNotice} — ${suffix.trim()}`;
-        translatedMessage = msgDict.damMessage;
-      } else if (
-        titleLower.includes('red alert') ||
-        titleLower.includes('downpour') ||
-        messageLower.includes('meteorological') ||
-        messageLower.includes('imd')
-      ) {
-        const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
-        translatedTitle = `${dict.imdNotice} — ${suffix.trim()}`;
-        translatedMessage = msgDict.imdMessage;
-      } else if (
-        titleLower.includes('evacuation') ||
-        messageLower.includes('mandatory evacuation') ||
-        messageLower.includes('riverfront')
-      ) {
-        const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
-        translatedTitle = `${dict.evacuationNotice} — ${suffix.trim()}`;
-        translatedMessage = msgDict.evacuationMessage;
-      } else if (
-        titleLower.includes('relief camp') ||
-        messageLower.includes('relief shelter') ||
-        messageLower.includes('pillai')
-      ) {
-        const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
-        translatedTitle = `${dict.reliefNotice} — ${suffix.trim()}`;
-        translatedMessage = msgDict.reliefMessage;
-      } else {
-        translatedTitle = `${dict.prefix} ${item.title}`;
-        translatedMessage = msgDict.genericNotice(item.message);
-      }
+        if (titleLower.includes('dam') || titleLower.includes('discharge') || messageLower.includes('spillway')) {
+          const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
+          fallbackTitle = `${dict.damNotice} — ${suffix.trim()}`;
+          fallbackMessage = msgDict.damMessage;
+        } else if (
+          titleLower.includes('red alert') ||
+          titleLower.includes('downpour') ||
+          messageLower.includes('meteorological') ||
+          messageLower.includes('imd')
+        ) {
+          const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
+          fallbackTitle = `${dict.imdNotice} — ${suffix.trim()}`;
+          fallbackMessage = msgDict.imdMessage;
+        } else if (
+          titleLower.includes('evacuation') ||
+          messageLower.includes('mandatory evacuation') ||
+          messageLower.includes('riverfront')
+        ) {
+          const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
+          fallbackTitle = `${dict.evacuationNotice} — ${suffix.trim()}`;
+          fallbackMessage = msgDict.evacuationMessage;
+        } else if (
+          titleLower.includes('relief camp') ||
+          messageLower.includes('relief shelter') ||
+          messageLower.includes('pillai')
+        ) {
+          const suffix = item.title.includes('—') ? item.title.split('—')[1] : item.title;
+          fallbackTitle = `${dict.reliefNotice} — ${suffix.trim()}`;
+          fallbackMessage = msgDict.reliefMessage;
+        } else {
+          fallbackTitle = `${dict.prefix} ${item.title}`;
+          fallbackMessage = msgDict.genericNotice(item.message);
+        }
 
-      return {
-        id: item.id,
-        title: translatedTitle,
-        message: translatedMessage,
-      };
-    });
+        return {
+          id: item.id,
+          title: fallbackTitle,
+          message: fallbackMessage,
+        };
+      })
+    );
 
     const response: TranslationResponse = { items: translatedItems };
     return NextResponse.json(response);
