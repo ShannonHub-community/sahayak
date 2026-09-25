@@ -97,6 +97,6 @@ We believe in presenting exactly what works today — not more, not less.
 
 ## 👥 Team
 
-**Try-Catchers** — Smart India Hackathon 2026
+**The Try-Catchers** — Smart India Hackathon 2026
 
 ---
