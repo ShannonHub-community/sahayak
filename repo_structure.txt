@@ -1,0 +1,532 @@
+﻿sahayak/
+├── .env
+├── .env.example
+├── .gitignore
+├── README.md
+├── package-lock.json
+├── render.yaml
+├── repo_structure.txt
+├── requirements.txt
+│
+├── .github/
+│   └── PULL_REQUEST_TEMPLATE.md
+│
+├── backend/
+│   ├── .env
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── sahayak.db
+│   ├── sahayak_local.db
+│   ├── seed_demo.py
+│   │
+│   ├── database/
+│   │   ├── __init__.py
+│   │   └── local_sqlite.py
+│   │
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   └── citizen_router.py
+│   │
+│   ├── scripts/
+│   │   ├── seed_mock_twin_data.py
+│   │   ├── sync_demo_db.py
+│   │   └── test_sqlite_migration.py
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   │
+│   │   ├── ai_decision/
+│   │   │   ├── __init__.py
+│   │   │   ├── orchestrator.py
+│   │   │   ├── procedure.py
+│   │   │   ├── reasoning.py
+│   │   │   ├── router.py
+│   │   │   ├── snapshot.py
+│   │   │   ├── staleness.py
+│   │   │   └── validator.py
+│   │   │
+│   │   ├── audit_log/
+│   │   │   ├── __init__.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── donation_portal/
+│   │   │   ├── __init__.py
+│   │   │   ├── donor.py
+│   │   │   ├── financial.py
+│   │   │   ├── food.py
+│   │   │   ├── funds_tracker.py
+│   │   │   ├── human_resources.py
+│   │   │   ├── medical.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── donation_service/
+│   │   │   ├── __init__.py
+│   │   │   ├── database_schema.sql
+│   │   │   ├── main.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── flood_engine/
+│   │   │   ├── .env.example
+│   │   │   ├── .gitignore
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py
+│   │   │   ├── main.py
+│   │   │   ├── requirements-dev.txt
+│   │   │   ├── requirements.txt
+│   │   │   ├── database/
+│   │   │   │   └── supabase_client.py
+│   │   │   ├── services/
+│   │   │   │   └── flood_engine/
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── mock_server.py
+│   │   │   │       ├── router.py
+│   │   │   │       ├── schemas.py
+│   │   │   │       ├── service.py
+│   │   │   │       ├── data/
+│   │   │   │       │   ├── dem_values.json
+│   │   │   │       │   └── flood_model.json
+│   │   │   │       └── tests/
+│   │   │   │           ├── __init__.py
+│   │   │   │           ├── seed.py
+│   │   │   │           ├── test_feature_engineering.py
+│   │   │   │           ├── test_ingestion.py
+│   │   │   │           ├── test_refresh_e2e.py
+│   │   │   │           └── test_scoring.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── news_report/
+│   │   │   ├── .env.example
+│   │   │   ├── .gitignore
+│   │   │   ├── __init__.py
+│   │   │   ├── cloud_tts_fallback.py
+│   │   │   ├── geo_lookup.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       ├── __init__.py
+│   │   │       ├── test_geo_lookup.py
+│   │   │       └── test_live_updates_additions.py
+│   │   │
+│   │   ├── pdna_service/
+│   │   │   ├── README.md
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── database.py
+│   │   │   ├── intake.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── pdna.db
+│   │   │   ├── schemas.py
+│   │   │   ├── storage.py
+│   │   │   ├── test_pdna_service.py
+│   │   │   ├── tracking.py
+│   │   │   ├── storage/
+│   │   │   │   └── damage-photos/
+│   │   │   └── twin_aggregator/
+│   │   │       ├── __init__.py
+│   │   │       └── normalizer.py
+│   │   │
+│   │   ├── registration_service/
+│   │   │   ├── __init__.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── resource_service/
+│   │   │   ├── __init__.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       ├── __init__.py
+│   │   │       └── test_resource_service.py
+│   │   │
+│   │   ├── sos_service/
+│   │   │   ├── .gitignore
+│   │   │   ├── README.md
+│   │   │   ├── __init__.py
+│   │   │   ├── geo.py
+│   │   │   ├── main.py
+│   │   │   ├── requirements.txt
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   ├── shelters.json
+│   │   │   ├── sos.db
+│   │   │   ├── shared/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── database.py
+│   │   │   └── tests/
+│   │   │       └── __init__.py
+│   │   │
+│   │   ├── twin_aggregator/
+│   │   │   ├── __init__.py
+│   │   │   ├── router.py
+│   │   │   ├── schemas.py
+│   │   │   ├── service.py
+│   │   │   └── tests/
+│   │   │       ├── __init__.py
+│   │   │       ├── run_tests.py
+│   │   │       └── test_twin_aggregator.py
+│   │   │
+│   │   └── workforce_orchestrator/
+│   │       ├── AGENTS.md
+│   │       ├── CLAUDE.md
+│   │       ├── README.md
+│   │       ├── WorkforceDashboard.tsx
+│   │       ├── __init__.py
+│   │       ├── eslint.config.mjs
+│   │       ├── main.py
+│   │       ├── next.config.ts
+│   │       ├── package-lock.json
+│   │       ├── package.json
+│   │       ├── postcss.config.mjs
+│   │       ├── router.py
+│   │       ├── schemas.py
+│   │       ├── service.py
+│   │       └── tsconfig.json
+│   │
+│   └── shared/
+│       ├── __init__.py
+│       ├── config.py
+│       └── supabase.py
+│
+├── database/
+│   ├── schema.sql
+│   └── migrations/
+│       └── 001_ai_decision_tables.sql
+│
+├── docs/
+│   ├── TEAM_DEVELOPMENT_GUIDE.md
+│   └── backend/
+│       ├── ARCHITECTURE.md
+│       └── SERVICE_BLUEPRINT.md
+│
+└── frontend/
+    ├── .env.example
+    ├── .env.local
+    ├── .gitignore
+    ├── AGENTS.md
+    ├── CLAUDE.md
+    ├── README.md
+    ├── eslint.config.mjs
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── package-lock.json
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
+    │
+    ├── public/
+    │   ├── file.svg
+    │   ├── globe.svg
+    │   ├── manifest.json
+    │   ├── next.svg
+    │   ├── sw.js
+    │   ├── swe-worker-5c72df51bb1f6ee0.js
+    │   ├── vercel.svg
+    │   ├── window.svg
+    │   └── workbox-84c8cf68.js
+    │
+    └── src/
+        ├── constants/
+        │   └── sampleShelters.ts
+        │
+        ├── context/
+        │   └── LedgerContext.jsx
+        │
+        ├── hooks/
+        │   ├── useBleMesh.ts
+        │   └── useGeolocation.ts
+        │
+        ├── lib/
+        │   └── .gitkeep
+        │
+        ├── mock/
+        │   └── initialData.js
+        │
+        ├── services/
+        │   ├── aadhaar.ts
+        │   ├── alerts.ts
+        │   ├── autofill.ts
+        │   ├── browserIdentifier.ts
+        │   ├── geolocation.ts
+        │   ├── location.ts
+        │   ├── offlineCache.ts
+        │   ├── otp.ts
+        │   ├── registration.ts
+        │   ├── sos.ts
+        │   ├── translation.ts
+        │   └── tts.ts
+        │
+        ├── store/
+        │   ├── .gitkeep
+        │   └── twinStore.ts
+        │
+        ├── styles/
+        │   └── .gitkeep
+        │
+        ├── types/
+        │   ├── alerts.ts
+        │   ├── registration.ts
+        │   ├── sos.ts
+        │   └── translation.ts
+        │
+        ├── app/
+        │   ├── favicon.ico
+        │   ├── globals.css
+        │   ├── layout.tsx
+        │   ├── page.tsx
+        │   │
+        │   ├── about/
+        │   │   └── page.tsx
+        │   │
+        │   ├── admin/
+        │   │   ├── .gitkeep
+        │   │   ├── layout.tsx
+        │   │   ├── page.tsx
+        │   │   ├── audit-log/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── damage-reports/
+        │   │   │   └── page.tsx
+        │   │   ├── public-comms/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── resource-ledger/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── twin/
+        │   │   │   └── page.tsx
+        │   │   └── workforce/
+        │   │       ├── layout.tsx
+        │   │       └── page.tsx
+        │   │
+        │   ├── api/
+        │   │   ├── comms/
+        │   │   │   ├── translate/
+        │   │   │   │   └── route.ts
+        │   │   │   └── tts/
+        │   │   │       └── route.ts
+        │   │   └── geo/
+        │   │       └── ip-lookup/
+        │   │           └── route.ts
+        │   │
+        │   ├── citizen/
+        │   │   ├── .gitkeep
+        │   │   ├── page.tsx
+        │   │   ├── ble/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── donate/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── donation/
+        │   │   │   ├── layout.tsx
+        │   │   │   ├── page.tsx
+        │   │   │   └── funds-tracker/
+        │   │   │       ├── layout.tsx
+        │   │   │       └── page.tsx
+        │   │   ├── guides/
+        │   │   │   └── page.tsx
+        │   │   ├── ivr/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── news-report/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── offline-chat/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── pdna/
+        │   │   │   ├── page.tsx
+        │   │   │   └── track/
+        │   │   │       └── [id]/
+        │   │   │           └── page.tsx
+        │   │   ├── register/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   ├── sos/
+        │   │   │   ├── layout.tsx
+        │   │   │   └── page.tsx
+        │   │   └── updates/
+        │   │       ├── layout.tsx
+        │   │       └── page.tsx
+        │   │
+        │   ├── guides/
+        │   │   └── page.tsx
+        │   │
+        │   ├── public-comms/
+        │   │   ├── layout.tsx
+        │   │   └── page.tsx
+        │   │
+        │   └── verify/
+        │       ├── layout.tsx
+        │       └── page.tsx
+        │
+        └── components/
+            ├── AlertCard.tsx
+            ├── CompassDisplay.tsx
+            ├── GovFooter.tsx
+            ├── GovHeader.tsx
+            ├── MiniMap.tsx
+            ├── SOSForm.tsx
+            │
+            ├── ai_decision/
+            │   └── CommandCenter.tsx
+            │
+            ├── audit_log/
+            │   ├── .gitkeep
+            │   ├── AuditLogFilterBar.tsx
+            │   ├── AuditLogTab.tsx
+            │   ├── AuditLogTable.tsx
+            │   ├── InquiryThread.tsx
+            │   ├── RevertModal.tsx
+            │   ├── TicketDetailPanel.tsx
+            │   ├── TicketRow.tsx
+            │   ├── auditLogApi.ts
+            │   ├── mockData.ts
+            │   ├── types.ts
+            │   └── useAuditLogStore.ts
+            │
+            ├── ble_mesh/
+            │   └── .gitkeep
+            │
+            ├── context/
+            │   └── LedgerContext.jsx
+            │
+            ├── digital_twin/
+            │   ├── .gitkeep
+            │   ├── ConnectionBadge.tsx
+            │   ├── DigitalTwinMap.tsx
+            │   ├── EntityMarker.tsx
+            │   ├── types.ts
+            │   └── hooks/
+            │       └── useTwinWebsocket.ts
+            │
+            ├── donation_coordinator/
+            │   ├── .gitkeep
+            │   ├── AddDonationModal.jsx
+            │   ├── CenterPanelResourceMatrix.jsx
+            │   ├── CertificateModal.jsx
+            │   ├── DonationCoordinatorTab.jsx
+            │   ├── DonationDetailModal.jsx
+            │   ├── LeftPanelIncomingHelp.jsx
+            │   ├── PublicBroadcastModal.jsx
+            │   ├── RightPanelActionBridge.jsx
+            │   └── WorkforceDemandModal.jsx
+            │
+            ├── donation_portal/
+            │   ├── .gitkeep
+            │   ├── CsrGateway.jsx
+            │   ├── DonationPortalTab.jsx
+            │   ├── DonorRegistrationModal.jsx
+            │   ├── FinancialAssistanceForm.jsx
+            │   ├── FoodMealsForm.jsx
+            │   ├── FundsTrackerWidget.jsx
+            │   ├── HumanResourcesForm.jsx
+            │   ├── MedicalSuppliesForm.jsx
+            │   ├── PublicDonationPortal.jsx
+            │   └── PublicVerifyModal.jsx
+            │
+            ├── guides/
+            │   └── OfflineGuidesView.tsx
+            │
+            ├── mock/
+            │   └── initialData.js
+            │
+            ├── news_report/
+            │   ├── .gitkeep
+            │   ├── AlertCard.tsx
+            │   ├── alerts.ts
+            │   └── updates.tsx
+            │
+            ├── public_comms/
+            │   ├── .gitkeep
+            │   ├── CommsMetricsBar.tsx
+            │   ├── ConfirmationModal.tsx
+            │   ├── TabCitizenAlerts.tsx
+            │   ├── TabPressRelations.tsx
+            │   ├── TabTransparencyTimeline.tsx
+            │   ├── commsService.ts
+            │   ├── index.tsx
+            │   ├── mockData.ts
+            │   ├── types.ts
+            │   └── useCommsStore.ts
+            │
+            ├── registration/
+            │   ├── .gitkeep
+            │   ├── GovHeader.tsx
+            │   ├── RegistrationWizard.tsx
+            │   ├── StepBasicProfile.tsx
+            │   ├── StepConfirmation.tsx
+            │   ├── StepIdentity.tsx
+            │   ├── StepMedicalFamily.tsx
+            │   ├── _mockStore.ts
+            │   ├── autofill.ts
+            │   ├── browserIdentifier.ts
+            │   ├── lookup.ts
+            │   ├── register.tsx
+            │   └── registerApi.ts
+            │
+            ├── resource_manager/
+            │   ├── .gitkeep
+            │   ├── AIInsightCards.tsx
+            │   ├── AddStockModal.tsx
+            │   ├── BroadcastNeedModal.tsx
+            │   ├── HandoverModal.tsx
+            │   ├── InventoryMatrix.tsx
+            │   ├── PublicNeedsBroadcast.tsx
+            │   ├── ResourceManagerTab.tsx
+            │   ├── ShelterProgressBar.tsx
+            │   ├── WorkforceQueue.tsx
+            │   ├── index.ts
+            │   ├── resourceApi.ts
+            │   ├── types.ts
+            │   └── useResourceStore.ts
+            │
+            ├── shared/
+            │   └── .gitkeep
+            │
+            ├── sos/
+            │   ├── .gitkeep
+            │   ├── CompassDisplay.tsx
+            │   ├── MiniMap.tsx
+            │   ├── SOSForm.tsx
+            │   ├── index.tsx
+            │   ├── sos.ts
+            │   └── sos1.ts
+            │
+            └── workforce_portal/
+                ├── .gitignore
+                ├── .gitkeep
+                ├── AGENTS.md
+                ├── CLAUDE.md
+                ├── README.md
+                ├── WorkforceDashboard.tsx
+                ├── eslint.config.mjs
+                ├── main.py
+                ├── next.config.ts
+                ├── package-lock.json
+                ├── package.json
+                ├── postcss.config.mjs
+                └── tsconfig.json
