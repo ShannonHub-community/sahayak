@@ -77,40 +77,67 @@ def _headers() -> dict[str, str]:
     }
 
 
+def _google_translate_fallback(text: str, target_lang: str) -> str:
+    """Free Google Translate fallback for Indic languages when Sarvam is unavailable."""
+    short_lang = target_lang.split("-")[0].lower()
+    if short_lang == "od":
+        short_lang = "or"
+    if short_lang in ("en", ""):
+        return text
+
+    import urllib.parse
+    encoded_text = urllib.parse.quote(text)
+    url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={short_lang}&dt=t&q={encoded_text}"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        resp = httpx.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+            translated_pieces = [part[0] for part in data[0] if part and len(part) > 0 and part[0]]
+            res = "".join(translated_pieces).strip()
+            if res:
+                return res
+    except Exception as e:
+        raise CloudCommsAPIError(f"Google translate fallback failed: {e}") from e
+
+    raise CloudCommsAPIError("Google translate returned empty response")
+
+
 def translate_text(text: str, target_language_code: str, source_language_code: str = "en-IN") -> str:
-    """Translate a single piece of text via Sarvam's /translate endpoint.
-    `target_language_code`/`source_language_code` are Sarvam codes
-    (e.g. "hi-IN"), not our short "hi" codes - map before calling."""
+    """Translate a single piece of text via Sarvam's /translate endpoint with
+    automatic Google Translate fallback for all 11 Indian languages."""
     if not text or not text.strip():
         return text
 
-    payload = {
-        "input": text,
-        "source_language_code": source_language_code,
-        "target_language_code": target_language_code,
-        "mode": "formal",
-    }
+    key = os.environ.get("CLOUD_TTS_API_KEY") or os.environ.get("SARVAM_API_KEY") or CLOUD_TTS_API_KEY
+    if key:
+        payload = {
+            "input": text,
+            "source_language_code": source_language_code,
+            "target_language_code": target_language_code,
+            "mode": "formal",
+        }
+        try:
+            response = httpx.post(
+                f"{SARVAM_API_BASE_URL}/translate",
+                json=payload,
+                headers={
+                    "API-Subscription-Key": key,
+                    "Content-Type": "application/json",
+                },
+                timeout=DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            translated = data.get("translated_text")
+            if translated:
+                return translated
+        except Exception:
+            # Fall through to Google Translate fallback below
+            pass
 
-    try:
-        response = httpx.post(
-            f"{SARVAM_API_BASE_URL}/translate",
-            json=payload,
-            headers=_headers(),
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise CloudCommsAPIError(f"Sarvam translate request failed: {exc}") from exc
-
-    try:
-        data = response.json()
-    except ValueError as exc:
-        raise CloudCommsAPIError("Sarvam translate returned a non-JSON response") from exc
-
-    translated = data.get("translated_text")
-    if not translated:
-        raise CloudCommsAPIError("Sarvam translate response was missing 'translated_text'")
-    return translated
+    return _google_translate_fallback(text, target_language_code)
 
 
 def synthesize_speech(text: str, target_language_code: str) -> bytes:

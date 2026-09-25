@@ -8,7 +8,6 @@ export const PublicDonationPortal = () => {
   const {
     publicNeeds,
     addIncomingRequest,
-    setActiveTab,
     pledgedNeed,
     setPledgedNeed,
     requests,
@@ -252,19 +251,12 @@ export const PublicDonationPortal = () => {
                   <h4 className="font-bold text-sm">Help Offer Transmitted to EOC Gatekeeper!</h4>
                 </div>
                 <p className="text-xs text-slate-700">
-                  Your donation proposal has been dispatched to the EOC Donation Coordinator. You can switch to the <strong>EOC Resource Ledger</strong> tab to see it under <strong>Incoming Help Requests</strong> ready for verification and approval!
+                  Your donation proposal has been dispatched to the EOC Donation Coordinator.
                 </p>
-                <div className="pt-2 flex items-center space-x-3">
-                  <button
-                    onClick={() => setActiveTab('eoc-ledger')}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow cursor-pointer flex items-center space-x-1"
-                  >
-                    <span>View in EOC Resource Ledger</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                <div className="pt-1 flex items-center">
                   <button
                     onClick={() => setSubmittedSuccess(false)}
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
                   >
                     Submit Another Offer
                   </button>

@@ -59,7 +59,7 @@ export interface UsePublicAlertsReturn {
   isValidating: boolean;
   isOfflineCached: boolean;
   error: Error | undefined;
-  refresh: () => Promise<any>;
+  refresh: () => Promise<unknown>;
 }
 
 interface RawAlertItem {
@@ -130,6 +130,10 @@ export function usePublicAlerts(page = 1, stateFilter?: string | null): UsePubli
   const endpointUrl = `/api/comms/public-feed?${queryParams.toString()}`;
   console.log('[DEBUG usePublicAlerts] SWR Key/URL computed. stateFilter:', stateFilter, '-> endpointUrl:', endpointUrl);
 
+  const initialCached = useMemo(() => {
+    return typeof window !== 'undefined' ? getCachedAlertsFromStorage() : SAMPLE_FALLBACK_ALERTS;
+  }, []);
+
   const { data, error, isLoading, isValidating, mutate } = useSWR<PublicAlert[]>(
     endpointUrl,
     alertsFetcher,
@@ -137,14 +141,11 @@ export function usePublicAlerts(page = 1, stateFilter?: string | null): UsePubli
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 5000,
-      fallbackData: typeof window !== 'undefined' ? getCachedAlertsFromStorage() : SAMPLE_FALLBACK_ALERTS,
+      fallbackData: initialCached,
     }
   );
 
   const isOffline = typeof window !== 'undefined' && !navigator.onLine;
-  const initialCached = useMemo(() => {
-    return typeof window !== 'undefined' ? getCachedAlertsFromStorage() : SAMPLE_FALLBACK_ALERTS;
-  }, []);
 
   const finalAlerts = useMemo(() => {
     const base = data || initialCached;
